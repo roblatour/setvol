@@ -1,2 +1,2 @@
 # setvol
- change Window computer's master volume and recording levels
+ change Windows computer's master volume and recording levels
