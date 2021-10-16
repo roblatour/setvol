@@ -1,4 +1,4 @@
-﻿' SetVol 2.4, Copyright 2021, Rob Latour  
+﻿' SetVol 2.5, Copyright 2021, Rob Latour  
 '             https://www.raltour.com/setvol
 ' License MIT https://opensource.org/licenses/MIT
 ' Source      https://github.com/roblatour/setvol
@@ -260,7 +260,7 @@ Module Module1
                 Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
                 Console_WriteLineInColour(" ")
-                Console_WriteLineInColour("SetVol v2.4 Help")
+                Console_WriteLineInColour("SetVol v2.5 Help")
                 Console_WriteLineInColour(" ")
                 Console_WriteLineInColour("Options:")
                 Console_WriteLineInColour(" ?                 help")
@@ -329,7 +329,7 @@ Module Module1
 
                 Console_WriteLineInColour(" setvol website")
                 Console_WriteLineInColour(" ")
-                Console_WriteLineInColour("SetVol v2.4", ConsoleColor.Yellow)
+                Console_WriteLineInColour("SetVol v2.5", ConsoleColor.Yellow)
                 Console_WriteLineInColour("Copyright © 2021, Rob Latour", ConsoleColor.Yellow)
                 Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
                 Console_WriteLineInColour(" ")
@@ -806,6 +806,10 @@ WrapUp:
     End Function
 
     Private Sub Console_WriteLineInColour(ByVal Message As String, Optional ByVal Colour As ConsoleColor = ConsoleColor.White)
+
+        If (Console.BackgroundColor = Colour) Then
+            Colour = ConsoleColor.Black
+        End If
 
         Console.ForegroundColor = Colour
         Console.WriteLine(Message)
