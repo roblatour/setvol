@@ -1,5 +1,5 @@
-﻿# setvol
-A command line program for Windows to change and report on your computer's audio and recording levels.  Also, allows you to set your audio and recording default devices.
+﻿# SetVol
+A command line program for Windows to change and report on your computer's audio and recording levels.  Also, allows you to set your default audio and recording devices.
 
 Copyright © 2021, Rob Latour, Licensed under MIT
 
