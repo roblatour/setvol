@@ -3,7 +3,7 @@ A command line program for Windows to change and report on your computer's audio
 
 Copyright © 2021, Rob Latour, Licensed under MIT
 
-A downloadable signed executable version of the program is available from  [https://rlatour.com/setvol](https://rlatour.com/setvol)
+A downloadable signed executable of the program is available from  [https://rlatour.com/setvol](https://rlatour.com/setvol)
 
 For more informaiton please visit  [https://rlatour.com/setvol](https://rlatour.com/setvol)
 
