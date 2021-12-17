@@ -1,4 +1,4 @@
-﻿' SetVol 3.0, Copyright © 2021, Rob Latour  
+﻿' SetVol 3.1, Copyright © 2021, Rob Latour  
 '             https://www.raltour.com/setvol
 ' License MIT https://opensource.org/licenses/MIT
 ' Source      https://github.com/roblatour/setvol
@@ -51,7 +51,7 @@ Module Main
     Private gStartingColour As ConsoleColor
     Private gCurrentColour As ConsoleColor
 
-    Private gTotalTestTimeForListingingInSeconds As Integer = 5
+    Private gTotalTestTimeForListingingInSeconds As Decimal = 5
 
     Sub Main()
 
@@ -97,6 +97,8 @@ Module Main
         'CommandLine = "Report device BenQ BL3200 (NVIDIA High Definition Audio)"
         'CommandLine = "Report listen device Speakers (Realtek USB2.0 Audio)"
         'CommandLine = "listen"
+        'CommandLine = "listen -5"
+        'CommandLine = "listen 10"
         'CommandLine = "listen 1 device Speakers (Realtek USB2.0 Audio)"
         'CommandLine = "listen 32 device Microphone (Yeti Stereo Microphone)"
         'CommandLine = "Report listen 12 device Microphone (Yeti Stereo Microphone)"
@@ -421,11 +423,16 @@ Module Main
 
                             sSamplingPeriod = SamplingPeriod(0)
 
-                            Dim CandiateSamplingPeriod As Integer = CInt(sSamplingPeriod)
+                            Dim CandiateSamplingPeriod As Decimal = CDec(sSamplingPeriod)
 
                             If CandiateSamplingPeriod > 0 Then
 
                                 gTotalTestTimeForListingingInSeconds = CandiateSamplingPeriod
+
+                            Else
+
+                                Console_WriteLineInColour("Error: invalid Listen period, should be greater than zero", ConsoleColor.Red)
+                                GoTo ErrorFound
 
                             End If
 
@@ -435,7 +442,7 @@ Module Main
 
                 Catch ex As Exception
 
-                    Console_WriteLineInColour("Error: invalid Listen sampling period", ConsoleColor.Red)
+                    Console_WriteLineInColour("Error: invalid Listen period", ConsoleColor.Red)
                     GoTo ErrorFound
 
                 End Try
@@ -919,11 +926,15 @@ WrapUp:
 
     Private Function DetectSoundFromADevice(ByVal Threshold As Decimal) As Boolean
 
-        Const SamplesPerSecond As Integer = 10
-
         Dim Channels As Integer = gDev.AudioMeterInformation.PeakValues.Count
 
-        For Samples = 1 To gTotalTestTimeForListingingInSeconds * SamplesPerSecond
+        Dim sampleCount As Integer = 0
+
+        Dim StopAfter As DateTime = Now.AddMilliseconds(gTotalTestTimeForListingingInSeconds * 1000)
+
+        While Now <= StopAfter
+
+            sampleCount += 1
 
             For y = 0 To Channels - 1
 
@@ -933,9 +944,13 @@ WrapUp:
 
             Next
 
-            Threading.Thread.Sleep(1000 / SamplesPerSecond)
+            Threading.Thread.Sleep(10) ' 1/100th of a second
 
-        Next
+        End While
+
+#If DEBUG Then
+        Console_WriteLineInColour("[ Listen samples taken = " & sampleCount & " ]", ConsoleColor.Cyan)
+#End If
 
         Return False
 
@@ -992,7 +1007,7 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.0 Help")
+        Console_WriteLineInColour("SetVol v3.1 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
@@ -1040,7 +1055,7 @@ WrapUp:
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" listen n          reports if a device is actively playing/recording sound")
         Console_WriteLineInColour("                   n represents the maximum number of seconds that SetVol will listen for a sound")
-        Console_WriteLineInColour("                   using n is optional, but if used it should be a positive whole number greater than zero")
+        Console_WriteLineInColour("                   using n is optional, but if used it should be a whole or decimal number greater than zero")
         Console_WriteLineInColour("                   when n is not specified, it will be defaulted to 5")
         Console_WriteLineInColour("                   SetVol only listens for as long as needed for it to hear a sound")
         Console_WriteLineInColour("                   SetVol will display the results and provide a return code of either 0 (nothing heard) or 1 (something heard)")
@@ -1076,12 +1091,12 @@ WrapUp:
         Console_WriteLineInColour(" setvol device")
         Console_WriteLineInColour(" setvol 32 report")
         Console_WriteLineInColour(" setvol 75 device Speakers (Realtek USB2.0 Audio))")
-        Console_WriteLineInColour(" setvol listen 10 device Speakers (Realtek USB2.0 Audio)")
+        Console_WriteLineInColour(" setvol listen 2.5 device Speakers (Realtek USB2.0 Audio)")
         Console_WriteLineInColour(" setvol makedefault device Speakers (Realtek USB2.0 Audio)")
         Console_WriteLineInColour(" setvol makedefault device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.0", ConsoleColor.Yellow)
+        Console_WriteLineInColour("SetVol v3.1", ConsoleColor.Yellow)
         Console_WriteLineInColour("Copyright © 2021, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
         Console_WriteLineInColour(" ")
