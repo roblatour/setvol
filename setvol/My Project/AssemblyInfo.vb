@@ -9,10 +9,10 @@ Imports System.Runtime.InteropServices
 ' Review the values of the assembly attributes
 
 <Assembly: AssemblyTitle("SetVol")>
-<Assembly: AssemblyDescription("set master system volume - playing and recording")>
+<Assembly: AssemblyDescription("set playing and recording levels")>
 <Assembly: AssemblyCompany("Rob Latour")>
 <Assembly: AssemblyProduct("SetVol")>
-<Assembly: AssemblyCopyright("Copyright © 2021, Rob Latour")>
+<Assembly: AssemblyCopyright("Copyright © 2022, Rob Latour")>
 <Assembly: AssemblyTrademark("")>
 
 <Assembly: ComVisible(False)>
@@ -31,5 +31,5 @@ Imports System.Runtime.InteropServices
 ' by using the '*' as shown below:
 ' <Assembly: AssemblyVersion("1.0.*")>
 
-<Assembly: AssemblyVersion("3.1.0.0")>
-<Assembly: AssemblyFileVersion("3.1.0.0")>
+<Assembly: AssemblyVersion("3.2.0.0")>
+<Assembly: AssemblyFileVersion("3.2.0.0")>

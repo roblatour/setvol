@@ -1,4 +1,4 @@
-﻿' SetVol 3.1, Copyright © 2021, Rob Latour  
+﻿' SetVol 3.2, Copyright © 2022, Rob Latour  
 '             https://www.raltour.com/setvol
 ' License MIT https://opensource.org/licenses/MIT
 ' Source      https://github.com/roblatour/setvol
@@ -63,7 +63,7 @@ Module Main
         'uncomment one and only one of the follow lines to run a test in debug mode
 
         'CommandLine = "garbage"
-        CommandLine = "?"
+        'CommandLine = "?"
         'CommandLine = "34"
         'CommandLine = "50%"
         'CommandLine = "+20"
@@ -111,11 +111,11 @@ Module Main
         'CommandLine = "device jjjjj"
 
 
-        'CommandLine = Environment.CommandLine
+        CommandLine = Environment.CommandLine
 
 #Else
 
-          CommandLine = Environment.CommandLine
+        CommandLine = Environment.CommandLine
 
 #End If
 
@@ -236,9 +236,10 @@ Module Main
 
                 If DeviceMatchFound Then
 
+                    StartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
+
 #If DEBUG Then
 
-                    StartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
                     Console_WriteLineInColour("[ Starting level = " & StartingLevel & " ]", ConsoleColor.Cyan)
 
 #End If
@@ -322,9 +323,10 @@ Module Main
 
                     gDev = gEenumer.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)
 
+                    StartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
+
 #If DEBUG Then
 
-                    StartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
                     Console_WriteLineInColour("[ Starting level = " & StartingLevel & " ]", ConsoleColor.Cyan)
 
 #End If
@@ -796,9 +798,9 @@ ErrorFound:
 
 ReturnNow:
 
-#If DEBUG Then
-
         EndingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
+
+#If DEBUG Then
 
         Console.WriteLine("")
         Console_WriteLineInColour("[ Ending level = " & EndingLevel & " ]", ConsoleColor.Cyan)
@@ -1007,7 +1009,7 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.1 Help")
+        Console_WriteLineInColour("SetVol v3.2 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
@@ -1096,8 +1098,8 @@ WrapUp:
         Console_WriteLineInColour(" setvol makedefault device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.1", ConsoleColor.Yellow)
-        Console_WriteLineInColour("Copyright © 2021, Rob Latour", ConsoleColor.Yellow, True)
+        Console_WriteLineInColour("SetVol v3.2", ConsoleColor.Yellow)
+        Console_WriteLineInColour("Copyright © 2022, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("SetVol is licensed under the MIT License", ConsoleColor.Cyan)
