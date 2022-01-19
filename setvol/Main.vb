@@ -1,4 +1,4 @@
-﻿' SetVol 3.2, Copyright © 2022, Rob Latour  
+﻿' SetVol 3.3, Copyright © 2022, Rob Latour  
 '             https://www.raltour.com/setvol
 ' License MIT https://opensource.org/licenses/MIT
 ' Source      https://github.com/roblatour/setvol
@@ -53,6 +53,9 @@ Module Main
 
     Private gTotalTestTimeForListingingInSeconds As Decimal = 5
 
+    Private gStartingLevel As Integer = 0
+    Private gFadeTime As Single = -1
+
     Sub Main()
 
         Dim ReturnCode As Integer = 0
@@ -61,6 +64,8 @@ Module Main
 #If DEBUG Then
 
         'uncomment one and only one of the follow lines to run a test in debug mode
+
+        'CommandLine = Environment.CommandLine
 
         'CommandLine = "garbage"
         'CommandLine = "?"
@@ -71,6 +76,12 @@ Module Main
         'CommandLine = "-10"
         'CommandLine = "10"
         'CommandLine = "-15"
+        'CommandLine = "50 over 25"
+        'CommandLine = "50 over -25"
+        CommandLine = "100 over 30"
+        'CommandLine = "71 over 10.55555"
+        'CommandLine = "5c0 over 10.5"
+        'CommandLine = "0 over 60"
         'CommandLine = "mute report"
         'CommandLine = "unmute report"
         'CommandLine = "+ two"
@@ -110,9 +121,6 @@ Module Main
         'CommandLine = "listen device"
         'CommandLine = "device jjjjj"
 
-
-        CommandLine = Environment.CommandLine
-
 #Else
 
         CommandLine = Environment.CommandLine
@@ -149,7 +157,6 @@ Module Main
 
         Dim OriginalCommandLine As String = CommandLine
 
-        Dim StartingLevel As Integer = 0
         Dim EndingLevel As Integer = 0
 
         Dim DeviceChannelValue() As Integer
@@ -236,11 +243,11 @@ Module Main
 
                 If DeviceMatchFound Then
 
-                    StartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
+                    gStartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
 
 #If DEBUG Then
 
-                    Console_WriteLineInColour("[ Starting level = " & StartingLevel & " ]", ConsoleColor.Cyan)
+                    Console_WriteLineInColour("[ Starting level = " & gStartingLevel & " ]", ConsoleColor.Cyan)
 
 #End If
 
@@ -316,18 +323,18 @@ Module Main
 
                 End If
 
-                    Else
+            Else
 
                 'use the default input device
                 Try
 
                     gDev = gEenumer.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)
 
-                    StartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
+                    gStartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
 
 #If DEBUG Then
 
-                    Console_WriteLineInColour("[ Starting level = " & StartingLevel & " ]", ConsoleColor.Cyan)
+                    Console_WriteLineInColour("[ Starting level = " & gStartingLevel & " ]", ConsoleColor.Cyan)
 
 #End If
 
@@ -404,7 +411,6 @@ Module Main
 
 
             End If
-
 
             If CommandLine.Contains("LISTEN") Then
 
@@ -484,9 +490,98 @@ Module Main
 
             End If
 
+            If CommandLine.Contains("OVER") Then
+
+                Const ErrorMsg As String = "Error: the over option must be followed by a positive number greater than zero but less than or equal to 86,400."
+
+                Dim WorkingLine As String = CommandLine.ToUpper
+
+                Dim OverTimeNumberStartsAt As Integer = WorkingLine.IndexOf("OVER") + "OVER".Length
+
+                Dim OverTimeNumberEndsAt As Integer = OverTimeNumberStartsAt
+
+                Dim KeepGoing As Boolean = True
+                Dim test As String = String.Empty
+
+                While KeepGoing
+
+                    If WorkingLine.Length = OverTimeNumberEndsAt Then
+
+                        KeepGoing = False
+
+                    Else
+
+                        test = Mid(WorkingLine, OverTimeNumberEndsAt)
+
+                        If " -.,01234567890".Contains(test) Then
+                            KeepGoing = False
+                        Else
+                            OverTimeNumberEndsAt += 1
+                        End If
+                    End If
+
+                End While
+
+                WorkingLine = WorkingLine.Remove(0, OverTimeNumberStartsAt).Trim
+
+                Dim Pos As Integer = WorkingLine.IndexOf(" ")
+
+                Dim sFadeTime As String
+
+                If Pos > 0 Then
+                    sFadeTime = WorkingLine.Remove(Pos)
+                Else
+                    sFadeTime = WorkingLine
+                End If
+
+                Try
+
+                    ' Convert.ToString (used below) allows a number with multiple inappropriately placed commas, such as "8,6,500"
+                    ' the edit below weeds that out 
+
+                    If sFadeTime.Split(",").Length - 1 > 1 Then
+                        Console_WriteLineInColour(ErrorMsg, ConsoleColor.Red)
+                        GoTo ErrorFound
+                    End If
+
+                    gFadeTime = Convert.ToSingle(sFadeTime)
+
+                    ' Convert.ToString (used above) allows a number with an incorrectly placed comma, such as "8,6.5"
+                    ' the edit below weeds that out 
+
+                    If sFadeTime.Split(",").Length - 1 = 1 Then
+                        If gFadeTime >= 1000 Then
+                        Else
+                            Console_WriteLineInColour(ErrorMsg, ConsoleColor.Red)
+                            GoTo ErrorFound
+                        End If
+                    End If
+
+                    gFadeTime = CInt(gFadeTime * 1000) / 1000  'Convert to three decimal places, can't adjust more accurately than that
+
+                    If (gFadeTime <= 0) OrElse (gFadeTime > 86400) Then
+                        Console_WriteLineInColour(ErrorMsg, ConsoleColor.Red)
+                        GoTo ErrorFound
+                    End If
+
+                Catch ex As Exception
+
+                    Console_WriteLineInColour(ErrorMsg, ConsoleColor.Red)
+                    GoTo ErrorFound
+
+                End Try
+
+                WorkingLine = CommandLine.ToUpper
+
+
+                CommandLine = CommandLine.Remove(OverTimeNumberStartsAt - "OVER".Length, OverTimeNumberEndsAt - OverTimeNumberStartsAt + "OVER".Length).Trim
+
+            End If
+
             Console_WriteLineInColour("", ConsoleColor.White) ' reset console colour to white (but don't print anything)
 
             CommandLine = CommandLine.Trim
+
             If CommandLine.Length = 0 Then GoTo AllGood
 
             If CommandLine.Contains(".") Then
@@ -615,7 +710,7 @@ Module Main
 
                     If (DeltaVolume >= 0) AndAlso (DeltaVolume <= 100) Then
 
-                        Dim CurrentVolume As Integer = StartingLevel
+                        Dim CurrentVolume As Integer = gStartingLevel
 
                         If CommandLine.StartsWith("+") Then
                             NewVolume = CurrentVolume + DeltaVolume
@@ -625,7 +720,8 @@ Module Main
                             If NewVolume < 0 Then NewVolume = 0
                         End If
 
-                        gDev.AudioEndpointVolume.MasterVolumeLevelScalar = NewVolume / 100
+                        Dim NewVolSingle As Single = NewVolume / 100
+                        SetTheLevel(NewVolSingle)
                         MasterVolumeLevelChanged = True
 
                         GoTo AllGood
@@ -652,7 +748,7 @@ Module Main
             NewVolume = ConvertFromWords(CommandLine)
             If ((NewVolume >= 0) AndAlso (NewVolume <= 100)) Then
                 Dim NewVolSingle As Single = NewVolume / 100
-                gDev.AudioEndpointVolume.MasterVolumeLevelScalar = NewVolSingle
+                SetTheLevel(NewVolSingle)
                 MasterVolumeLevelChanged = True
                 GoTo AllGood
             End If
@@ -686,7 +782,7 @@ Module Main
 
                 If (NewVolume >= 0) AndAlso (NewVolume <= 100) Then
                     Dim NewVolSingle As Single = NewVolume / 100
-                    gDev.AudioEndpointVolume.MasterVolumeLevelScalar = NewVolSingle
+                    SetTheLevel(NewVolSingle)
                     MasterVolumeLevelChanged = True
                     GoTo AllGood
                 Else
@@ -730,7 +826,7 @@ AllGood:
         If MasterVolumeLevelChanged Then
             FinalVolume = gDev.AudioEndpointVolume.MasterVolumeLevelScalar
         Else
-            FinalVolume = StartingLevel / 100
+            FinalVolume = gStartingLevel / 100
         End If
 
         If gAlignFlag Then
@@ -820,7 +916,99 @@ WrapUp:
 
     End Function
 
+    Private Sub SetTheLevel(ByVal NewLevel As Single)
 
+        Try
+
+            Dim StartingLevel As Single = gStartingLevel / 100
+
+            If StartingLevel = NewLevel Then
+
+                If gFadeTime > 0 Then
+                    Console_WriteLineInColour("Note: the current level is already " & (NewLevel * 100) & ", it has been left unchanged.", ConsoleColor.Yellow)
+                End If
+
+                Exit Sub
+
+            End If
+
+
+            If gFadeTime < 0 Then
+
+                'immediately set the new level
+                gDev.AudioEndpointVolume.MasterVolumeLevelScalar = NewLevel
+
+            Else
+
+#If DEBUG Then
+                Dim OverallStopWatch As New Stopwatch
+                OverallStopWatch.Start()
+#End If
+
+                'set the new level in increments over a specified period of time
+
+                Dim TotalTimeInMilliSeconds As Integer = gFadeTime * 1000
+                Dim OptimalDelayTimeInMilliSeconds As Integer = TotalTimeInMilliSeconds / Math.Abs(Int((StartingLevel * 100) - (NewLevel * 100)))
+
+                Dim Increment As Single
+                If StartingLevel < NewLevel Then
+                    Increment = 0.01  ' raise the level by 1/100th
+                Else
+                    Increment = -0.01 ' decrease the level by 1/100th
+                End If
+
+                If gFadeTime = 1 Then
+                    Console.Write("Adjusting level from " & gStartingLevel & " to " & (NewLevel * 100) & " for the next 1 second.")
+                Else
+                    Console.Write("Adjusting level from " & gStartingLevel & " to " & (NewLevel * 100) & " for the next " & gFadeTime.ToString("#,##0.###") & " seconds.")
+                End If
+
+                Console.WriteLine(" Press [Ctrl][C] at any time to stop.")
+                Console.ForegroundColor = gStartingColour
+
+                Dim LoopProcessingStopWatch As New Stopwatch
+
+                Dim NextDelayTime As Integer = OptimalDelayTimeInMilliSeconds
+
+                For x As Single = StartingLevel + Increment To NewLevel Step Increment
+
+                    If NextDelayTime > 0 Then Threading.Thread.Sleep(NextDelayTime)
+
+                    LoopProcessingStopWatch.Reset()
+                    LoopProcessingStopWatch.Start()
+
+                    x = Math.Round(x, 2)
+                    If x > 1 Then x = 1
+
+                    gDev.AudioEndpointVolume.MasterVolumeLevelScalar = x
+
+                    Dim currentLineCursor As Integer = Console.CursorTop
+                    Console.SetCursorPosition(0, Console.CursorTop)
+                    Console.SetCursorPosition(0, currentLineCursor)
+                    Console.Write("The current level is now " & x * 100 & "   ")
+
+                    LoopProcessingStopWatch.Stop()
+
+                    'The next delay time = the optimal delay time - the time it takes to change the volume level and update the display - a small fudge factor to account for calculating the delay time
+
+                    NextDelayTime = OptimalDelayTimeInMilliSeconds - CInt(LoopProcessingStopWatch.ElapsedMilliseconds) - 4
+
+                Next
+
+#If DEBUG Then
+                OverallStopWatch.Stop()
+                Console.WriteLine("")
+                Console.WriteLine("")
+                Console_WriteLineInColour("[ Total time to complete was = " & (OverallStopWatch.ElapsedMilliseconds / 1000).ToString & " seconds ]", ConsoleColor.Cyan)
+#End If
+
+            End If
+
+        Catch ex As Exception
+
+        End Try
+
+    End Sub
     Private Function InventoryDevices(ByVal CommandLine As String) As DeviceTableStructure()
 
         Dim ReturnValue() As DeviceTableStructure = Nothing
@@ -1009,45 +1197,45 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.2 Help")
+        Console_WriteLineInColour("SetVol v3.3 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" ?                 help")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" n                 set the master volume to n where n = 0 to 100")
+        Console_WriteLineInColour(" n                 set the master level to n where n = 0 to 100")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" +n                increase the master volume level by n where n = 1 to 100; maximum result = 100")
-        Console_WriteLineInColour(" -n                decrease the master volume level by n where n = 1 to 100; minimum result = 0")
+        Console_WriteLineInColour(" +n                increase the master level by n where n = 1 to 100; maximum result = 100")
+        Console_WriteLineInColour(" -n                decrease the master level by n where n = 1 to 100; minimum result = 0")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" x                 set the master volume level to x where x = 'zero' to 'one hundred' (without the quotes)")
+        Console_WriteLineInColour(" x                 set the master to x where x = 'zero' to 'one hundred' (without the quotes)")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" align             make all channel volume levels equal the master volume level")
+        Console_WriteLineInColour(" align             make all channel levels equal the master level")
         Console_WriteLineInColour("                   most devices will have at least two channel levels")
         Console_WriteLineInColour("                   with the first channel representing the left speaker and the second channel representing the right speaker")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" balance c1:c2:cz  set the audio/recording device's channel levels")
-        Console_WriteLineInColour("                   cl is the desired volume level of the first channel where c1 = 0 to 100")
-        Console_WriteLineInColour("                   c2 is the desired volume level of the second channel where c2 = 0 to 100")
+        Console_WriteLineInColour("                   cl is the desired level of the first channel where c1 = 0 to 100")
+        Console_WriteLineInColour("                   c2 is the desired level of the second channel where c2 = 0 to 100")
         Console_WriteLineInColour("                   ...")
-        Console_WriteLineInColour("                   cz is the desired volume level of the last channel where cz = 0 to 100")
+        Console_WriteLineInColour("                   cz is the desired level of the last channel where cz = 0 to 100")
         Console_WriteLineInColour("                   values may be included for as many channels as the device supports")
         Console_WriteLineInColour("                   for example:")
         Console_WriteLineInColour("                       50 balance 100:100")
-        Console_WriteLineInColour("                        set the first and second channel (usually the left and right speakers) volume levels to 50")
+        Console_WriteLineInColour("                        set the first and second channel (usually the left and right speakers) levels to 50")
         Console_WriteLineInColour("                       100 balance 50:50")
-        Console_WriteLineInColour("                        also set the first and second channel volume levels to 50")
+        Console_WriteLineInColour("                        also set the first and second channel levels to 50")
         Console_WriteLineInColour("                       100 balance 80:100:70:100:90:85:50:100")
-        Console_WriteLineInColour("                        set the eight  channel volume levels to the values specified")
+        Console_WriteLineInColour("                        set the eight  channel levels to the values specified")
         Console_WriteLineInColour("                       50 balance 80:40")
-        Console_WriteLineInColour("                        set the first channel volume level to 40 (50 x 80%) and the second channel volume level 20 (50 x 40%)")
-        Console_WriteLineInColour("                    when the balance option is used the greatest of the channel volume levels becomes the new master volume level")
-        Console_WriteLineInColour("                    in the examples above the master volume level was specified")
-        Console_WriteLineInColour("                    if the master volume level is not specified the current master volume level value will be used")
-        Console_WriteLineInColour("                    and the master and channel volume levels be updated as in the last example above")
+        Console_WriteLineInColour("                        set the first channel level to 40 (50 x 80%) and the second channel level 20 (50 x 40%)")
+        Console_WriteLineInColour("                    when the balance option is used the greatest of the channel levels becomes the new master level")
+        Console_WriteLineInColour("                    in the examples above the master level was specified")
+        Console_WriteLineInColour("                    if the master level is not specified the current master level value will be used")
+        Console_WriteLineInColour("                    and the master and channel levels be updated as in the last example above")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" beep              play a beep")
-        Console_WriteLineInColour("                   if any changes to volume levels are being made, they will be made before the beep is played")
+        Console_WriteLineInColour("                   if any changes to levels are being made, they will be made before the beep is played")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" device name       audio/recording device name")
         Console_WriteLineInColour("                   when not used, SetVol will act upon the default audio device")
@@ -1074,20 +1262,25 @@ WrapUp:
         Console_WriteLineInColour(" nodefault         a pop-up error message will be displayed if a device is not specified and there is no default audio device")
         Console_WriteLineInColour("                   the use of this option suppresses that message")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" report            displays a device's master and channel volume levels")
-        Console_WriteLineInColour("                   the master volume level will be provided via SetVol's return code")
-        Console_WriteLineInColour("                       for example: if the device's master volume level is 60, SetVol's return code will be 60")
+        Console_WriteLineInColour(" over n            evenly transition to the level being set over n seconds")
+        Console_WriteLineInColour("                   n must be greater than zero but less than or equal to 86,400 (one day)")
+        Console_WriteLineInColour("                   if the current level does not need to be changed, the program will exit without waiting the specified time")
+        Console_WriteLineInColour(" ")
+        Console_WriteLineInColour(" report            displays a device's master and channel levels")
+        Console_WriteLineInColour("                   the master level will be provided via SetVol's return code")
+        Console_WriteLineInColour("                       for example: if the device's master level is 60, SetVol's return code will be 60")
         Console_WriteLineInColour("                   if the device is muted, the return code will be a negative number")
-        Console_WriteLineInColour("                   if a volume level is changed, the changed volume level is reported")
+        Console_WriteLineInColour("                   if a level is changed, the changed level is reported")
         Console_WriteLineInColour("                   this option may also be used with the device option")
         Console_WriteLineInColour("                   if the device option is not used, the default audio device will be used")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" website           visit the SetVol website")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Examples:")
-        Console_WriteLineInColour(" setvol 75")
+        Console_WriteLineInColour(" setvol 55")
         Console_WriteLineInColour(" setvol +10")
         Console_WriteLineInColour(" setvol seventy-five")
+        Console_WriteLineInColour(" setvol 60 over 30")
         Console_WriteLineInColour(" setvol 50 balance 80:100")
         Console_WriteLineInColour(" setvol mute")
         Console_WriteLineInColour(" setvol device")
@@ -1098,7 +1291,7 @@ WrapUp:
         Console_WriteLineInColour(" setvol makedefault device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.2", ConsoleColor.Yellow)
+        Console_WriteLineInColour("SetVol v3.3", ConsoleColor.Yellow)
         Console_WriteLineInColour("Copyright © 2022, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
         Console_WriteLineInColour(" ")
@@ -1254,12 +1447,11 @@ WrapUp:
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub Console_WriteLineInColour(ByVal Message As String, Optional ByVal Colour As ConsoleColor = ConsoleColor.White, Optional PrintSpecialCharacters As Boolean = False)
 
-        Dim OriginalTextEncoding As System.Text.Encoding
+        Dim OriginalTextEncoding As System.Text.Encoding = System.Console.OutputEncoding
 
         Try
 
             If PrintSpecialCharacters Then
-                OriginalTextEncoding = System.Console.OutputEncoding
                 System.Console.OutputEncoding = System.Text.Encoding.Unicode
             End If
 
