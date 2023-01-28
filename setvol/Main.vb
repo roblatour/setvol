@@ -399,6 +399,16 @@ Module Main
                 CommandLine = CommandLine.Replace("NODEFAULT", "").Trim
             End If
 
+            Dim ws As String = CommandLine
+            If ws.Contains("MAKEDEFAULTCOMM") Then
+                ws = ws.Replace("MAKEDEFAULTCOMM", "").Trim
+                If ws.Contains("MAKEDEFAULT") Then
+                    Console_WriteLineInColour(" ")
+                    Console_WriteLineInColour("Error: makedefault and makedefaultcomm cannot be used at the same time", ConsoleColor.Red)
+                    GoTo ErrorFound
+                End If
+            End If
+
             If CommandLine.Contains("MAKEDEFAULTCOMM") Then
                 CommandLine = CommandLine.Replace("MAKEDEFAULTCOMM", "").Trim
 
@@ -1289,14 +1299,13 @@ WrapUp:
         Console_WriteLineInColour("                   this option may also be used with the device option")
         Console_WriteLineInColour("                   if the device option is not used, the default audio device will be used")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" makedefault       change the default audio/recording device")
+        Console_WriteLineInColour(" makedefault       change the default audio device for playing/recording")
         Console_WriteLineInColour("                   if the makedefault option is used, then the device option must be used too")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" makedefaultcomm   change the default audio/recording communications device")
+        Console_WriteLineInColour(" makedefaultcomm   change the default communications device for playing/recording")
         Console_WriteLineInColour("                   if the makedefaultcomm option is used, then the device option must be used too")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("                   note: if makedefault is used in a command line then makedefaultcomm may not be used, and")
-        Console_WriteLineInColour("                   if makedefaultcomm is used in a command line then makedefault may not be used")
+        Console_WriteLineInColour("                   note: makedefault and makedefaultcomm may not be used in the same command line")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" mute              turn mute on")
         Console_WriteLineInColour(" ")
@@ -1331,7 +1340,7 @@ WrapUp:
         Console_WriteLineInColour(" setvol 75 device Speakers (Realtek USB2.0 Audio))")
         Console_WriteLineInColour(" setvol listen 2.5 device Speakers (Realtek USB2.0 Audio)")
         Console_WriteLineInColour(" setvol makedefault device Speakers (Realtek USB2.0 Audio)")
-        Console_WriteLineInColour(" setvol makedefault device Microphone (Yeti Stereo Microphone)")
+        Console_WriteLineInColour(" setvol makedefaultcomm device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("SetVol v3.4", ConsoleColor.Yellow)
