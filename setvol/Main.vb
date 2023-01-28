@@ -1,4 +1,4 @@
-﻿' SetVol 3.3, Copyright © 2022, Rob Latour  
+﻿' SetVol 3.4, Copyright © 2023, Rob Latour  
 '             https://www.raltour.com/setvol
 ' License MIT https://opensource.org/licenses/MIT
 ' Source      https://github.com/roblatour/setvol
@@ -36,6 +36,7 @@ Module Main
         Dim EndPoint As MMDevice
         Dim PayOrRecord As PlayOrRecordEnum
         Dim DefaultDevice As Boolean
+        Dim DefaultDeviceComm As Boolean
 
     End Structure
 
@@ -78,7 +79,7 @@ Module Main
         'CommandLine = "-15"
         'CommandLine = "50 over 25"
         'CommandLine = "50 over -25"
-        CommandLine = "100 over 30"
+        'CommandLine = "100 over 30"
         'CommandLine = "71 over 10.55555"
         'CommandLine = "5c0 over 10.5"
         'CommandLine = "0 over 60"
@@ -93,6 +94,8 @@ Module Main
         'CommandLine = "beep device"
         'CommandLine = "unmute"
         'CommandLine = "report"
+        'CommandLine = "report device Microphone (Yeti Stereo Microphone)"
+        'CommandLine = "report device Headphones (2- Realtek USB2.0 Audio)"
         'CommandLine = "setvol device"
         'CommandLine = "12 balance 50:75 device Speakers (Realtek USB2.0 Audio)"
         'CommandLine = "35 device Speakers (Realtek USB2.0 Audio)"
@@ -396,12 +399,28 @@ Module Main
                 CommandLine = CommandLine.Replace("NODEFAULT", "").Trim
             End If
 
+            If CommandLine.Contains("MAKEDEFAULTCOMM") Then
+                CommandLine = CommandLine.Replace("MAKEDEFAULTCOMM", "").Trim
+
+                If CommandLineContainsAValidDevice Then
+
+                    SetDefaultDevice(gDev.ID, True)
+
+                Else
+                    Console_WriteLineInColour(" ")
+                    Console_WriteLineInColour("Error: makedevicecomm was sepecified without device option or a valid device being identified", ConsoleColor.Red)
+                    GoTo ErrorFound
+                End If
+
+
+            End If
+
             If CommandLine.Contains("MAKEDEFAULT") Then
                 CommandLine = CommandLine.Replace("MAKEDEFAULT", "").Trim
 
                 If CommandLineContainsAValidDevice Then
 
-                    SetDefaultDevice(gDev.ID)
+                    SetDefaultDevice(gDev.ID, False)
 
                 Else
                     Console_WriteLineInColour(" ")
@@ -856,9 +875,11 @@ AllGood:
             Console.WriteLine("")
 
             If gDev.AudioEndpointVolume.Mute Then
+
                 Console.WriteLine("Volume = " & ReturnCode.ToString & " (Muted)")
                 Console.WriteLine("")
                 ReturnCode *= -1
+
             Else
 
                 Console.WriteLine("Master volume level = " & ReturnCode.ToString)
@@ -869,7 +890,7 @@ AllGood:
                 Next
 
             End If
-
+   
         End If
 
         If gBeepFlag Then
@@ -1015,6 +1036,10 @@ WrapUp:
 
         Dim DefaultDeviceName_Record As String = String.Empty
         Dim DefaultDeviceName_Play As String = String.Empty
+        Dim DefaultDeviceName_Comm_Record As String = String.Empty
+        Dim DefaultDeviceName_Comm_Play As String = String.Empty
+
+
 
         Try
 
@@ -1027,6 +1052,16 @@ WrapUp:
 
             Try
                 DefaultDeviceName_Play = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia).FriendlyName
+            Catch ex As Exception
+            End Try
+
+            Try
+                DefaultDeviceName_Comm_Record = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Communications).FriendlyName
+            Catch ex As Exception
+            End Try
+
+            Try
+                DefaultDeviceName_Comm_Play = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Communications).FriendlyName
             Catch ex As Exception
             End Try
 
@@ -1047,6 +1082,7 @@ WrapUp:
                         ReturnValue(Index).EndPoint = endpoint
                         ReturnValue(Index).PayOrRecord = PlayOrRecordEnum.Record
                         ReturnValue(Index).DefaultDevice = (endpoint.FriendlyName.ToString = DefaultDeviceName_Record)
+                        ReturnValue(Index).DefaultDeviceComm = (endpoint.FriendlyName.ToString = DefaultDeviceName_Comm_Record)
 
                         Index += 1
 
@@ -1069,6 +1105,7 @@ WrapUp:
                         ReturnValue(Index).EndPoint = endpoint
                         ReturnValue(Index).PayOrRecord = PlayOrRecordEnum.Play
                         ReturnValue(Index).DefaultDevice = (endpoint.FriendlyName.ToString = DefaultDeviceName_Play)
+                        ReturnValue(Index).DefaultDevice = (endpoint.FriendlyName.ToString = DefaultDeviceName_Comm_Play)
 
                         Index += 1
 
@@ -1197,7 +1234,7 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.3 Help")
+        Console_WriteLineInColour("SetVol v3.4 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
@@ -1255,6 +1292,9 @@ WrapUp:
         Console_WriteLineInColour(" makedefault       change the default audio/recording device")
         Console_WriteLineInColour("                   if the makedefault option is used, then the device option must be used too")
         Console_WriteLineInColour(" ")
+        Console_WriteLineInColour(" makedefaultcomm   change the default audio/recording communications device")
+        Console_WriteLineInColour("                   if the makedefaultcomm option is used, then the device option must be used too")
+        Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" mute              turn mute on")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" unmute            turn mute off")
@@ -1291,8 +1331,8 @@ WrapUp:
         Console_WriteLineInColour(" setvol makedefault device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.3", ConsoleColor.Yellow)
-        Console_WriteLineInColour("Copyright © 2022, Rob Latour", ConsoleColor.Yellow, True)
+        Console_WriteLineInColour("SetVol v3.4", ConsoleColor.Yellow)
+        Console_WriteLineInColour("Copyright © 2023, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("SetVol is licensed under the MIT License", ConsoleColor.Cyan)

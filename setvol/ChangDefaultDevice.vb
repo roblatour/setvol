@@ -1,11 +1,12 @@
 ﻿
 Imports System.Runtime.InteropServices
+Imports NAudio.CoreAudioApi
 
 Module ChangDefaultDevice
 
-    Friend Sub SetDefaultDevice(ByVal DeviceID As String)
+    Friend Sub SetDefaultDevice(ByVal DeviceID As String, ByVal CommunicationsDevice As Boolean)
 
-        AudioEndPoints.SetDefaultEndPoint(DeviceID, False)
+        AudioEndPoints.SetDefaultEndPoint(DeviceID, CommunicationsDevice)
 
     End Sub
 
@@ -45,10 +46,10 @@ Public Class AudioEndPoints
                 If IPCV Is Nothing Then Throw New Exception("Failed: COM cast to IPolicyConfigVista")
             End If
 
-            IPCV.SetDefaultEndpoint(devId, ERole.eConsole)
-
             If SetAsDefaultCommunicationDevice Then
                 IPCV.SetDefaultEndpoint(devId, ERole.eCommunications)
+            Else
+                IPCV.SetDefaultEndpoint(devId, ERole.eConsole)
             End If
 
         Finally
