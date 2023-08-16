@@ -1,4 +1,4 @@
-﻿' SetVol 3.4, Copyright © 2023, Rob Latour  
+﻿' SetVol 4.0, Copyright © 2023, Rob Latour  
 '             https://www.raltour.com/setvol
 ' License MIT https://opensource.org/licenses/MIT
 ' Source      https://github.com/roblatour/setvol
@@ -42,6 +42,7 @@ Module Main
 
     Private gDeviceTable() As DeviceTableStructure
 
+    Private gDebugFlag As Boolean = False
     Private gAlignFlag As Boolean = False
     Private gBeepFlag As Boolean = False
     Private gErrorExplained As Boolean = False
@@ -57,6 +58,11 @@ Module Main
     Private gStartingLevel As Integer = 0
     Private gFadeTime As Single = -1
 
+    Private gSessions As SessionCollection
+    Private gSessionIndex As New List(Of Integer)
+
+    Private gSetAppAudioVolume As Boolean = False
+
     Sub Main()
 
         Dim ReturnCode As Integer = 0
@@ -70,16 +76,13 @@ Module Main
 
         'CommandLine = "garbage"
         'CommandLine = "?"
-        'CommandLine = "34"
+        'CommandLine = "35"
         'CommandLine = "50%"
         'CommandLine = "+20"
         'CommandLine = "+200"
         'CommandLine = "-10"
-        'CommandLine = "10"
-        'CommandLine = "-15"
-        'CommandLine = "50 over 25"
+        CommandLine = "50 over 15"
         'CommandLine = "50 over -25"
-        'CommandLine = "100 over 30"
         'CommandLine = "71 over 10.55555"
         'CommandLine = "5c0 over 10.5"
         'CommandLine = "0 over 60"
@@ -90,13 +93,12 @@ Module Main
         'CommandLine = "seventy four"
         'CommandLine = "seventy-three percent"
         'CommandLine = "1.5"
-        'CommandLine = "75"
         'CommandLine = "beep device"
         'CommandLine = "unmute"
         'CommandLine = "report"
         'CommandLine = "report device Microphone (Yeti Stereo Microphone)"
         'CommandLine = "report device Headphones (2- Realtek USB2.0 Audio)"
-        'CommandLine = "setvol device"
+        'CommandLine = "device"
         'CommandLine = "12 balance 50:75 device Speakers (Realtek USB2.0 Audio)"
         'CommandLine = "35 device Speakers (Realtek USB2.0 Audio)"
         'CommandLine = "50 device ASUS VP249 (NVIDIA High Definition Audio)"
@@ -106,8 +108,7 @@ Module Main
         'CommandLine = "12 device Spexxxxxxxxxxx)"
         'CommandLine = "45 device Speakers (Realtek USB2.0 Audio)"
         'CommandLine = "12 balance 50:75 device Microphone (Realtek High Definition Audio)"
-        'CommandLine = "Report"
-        'CommandLine = "45 Report"
+        'CommandLine = "50 Report"
         'CommandLine = "Report device BenQ BL3200 (NVIDIA High Definition Audio)"
         'CommandLine = "Report listen device Speakers (Realtek USB2.0 Audio)"
         'CommandLine = "listen"
@@ -120,9 +121,24 @@ Module Main
         'CommandLine = "makedefault device Speakers (Realtek USB2.0 Audio)"
         'CommandLine = "75 beep report device Microphone (Yeti Stereo Microphone)"
         'CommandLine = "device"
-        'CommandLine = "device Microphone (Yeti Stereo Microphone)"
+        'CommandLine = "debug 50 device Microphone (Yeti Stereo Microphone) debug"
         'CommandLine = "listen device"
         'CommandLine = "device jjjjj"
+        'CommandLine = "25 appaudio vlc"
+        'CommandLine = "-15 over 15 appaudio vlc"
+        'CommandLine = "debug 32 appaudio vlc"
+        'CommandLine = "32 appaudio vlc debug"
+        'CommandLine = "25 appaudio vlc"
+        'CommandLine = "mute appaudio vlc"
+        'CommandLine = "unmute appaudio vlc"
+        'CommandLine = "100"
+        'CommandLine = "unmute device Speakers (Realtek USB2.0 Audio)"
+        'CommandLine = "unmute appaudio vlc debug"
+        'CommandLine = "appaudio"
+        'CommandLine = "50 over 10 appaudio vlc"
+        'CommandLine = "-12 over 10 appaudio SnagitEditor"
+        'CommandLine = "100 appaudio vlc"
+        'CommandLine = "debug"
 
 #Else
 
@@ -168,34 +184,66 @@ Module Main
 
         Dim AChangeInBalanceIsRequired As Boolean = False
 
+        Dim ApplicationName As String
+        Dim NewVolume As Integer
+
         Try
 
+            'remove the path and program name for setvol from the command line
+
+            If CommandLine.ToUpper.Contains("SETVOL.EXE") Then
+                CommandLine = CommandLine.Remove(0, CommandLine.ToUpper.IndexOf("SETVOL.EXE") + 10).TrimStart("""") ' remove the path in the command line "....SETVOL.EXE" (including the quotes)
+            End If
+
+            If CommandLine.ToUpper.Contains("SETVOL") Then
+                CommandLine = CommandLine.Remove(0, CommandLine.ToUpper.IndexOf("SETVOL") + 6).TrimStart("""") ' remove the path in the command line "....SETVOL.EXE" (including the quotes)
+            End If
+
+            CommandLine = CommandLine.Trim
+
 #If DEBUG Then
-
-            Console_WriteLineInColour("[ Command line = " & CommandLine & " ]", ConsoleColor.Cyan)
-
+            gDebugFlag = True
+#Else
+            gDebugFlag = CommandLine.ToUpper.Contains("DEBUG")
 #End If
+
+            If gDebugFlag Then
+
+                Console_WriteLineInColour("[ Command line: " & CommandLine & " ]", ConsoleColor.Cyan)
+                Console_WriteLineInColour(" ", ConsoleColor.Cyan)
+
+            End If
 
             CommandLine = CommandLine.Trim.ToUpper
 
             If CommandLine.Length > 0 Then
 
-                If CommandLine.Contains("SETVOL.EXE") Then
-                    CommandLine = CommandLine.Remove(0, CommandLine.IndexOf("SETVOL.EXE") + 10).TrimStart("""") ' remove the path in the command line "....SETVOL.EXE" (including the quotes)
-                End If
-
-                CommandLine = CommandLine.Replace("SETVOL", "")
+                CommandLine = CommandLine.Replace("DEBUG", "")
                 CommandLine = CommandLine.Replace("PERCENT", "")
                 CommandLine = CommandLine.Replace("%", "")
                 CommandLine = CommandLine.Trim
 
             End If
 
-            If (CommandLine = "?") OrElse (CommandLine = "HELP") OrElse (CommandLine = String.Empty) Then
+            If (CommandLine = "?") OrElse (CommandLine = "HELP") OrElse ((CommandLine = String.Empty) AndAlso (Not gDebugFlag)) Then
 
                 ShowHelp()
 
                 GoTo AllGood
+
+            End If
+
+            If CommandLine.Contains("DEVICE") AndAlso CommandLine.Contains("APPAUDIO") Then
+
+                Console_WriteLineInColour("Error: the 'appaudio' and 'device' options cannot be used in the same command.", ConsoleColor.Red)
+                GoTo ErrorFound
+
+            End If
+
+            If CommandLine.Contains("REPORT") AndAlso CommandLine.Contains("APPAUDIO") Then
+
+                Console_WriteLineInColour("Error: the 'appaudio' and 'report' options cannot be used in the same command.", ConsoleColor.Red)
+                GoTo ErrorFound
 
             End If
 
@@ -207,7 +255,7 @@ Module Main
 
             If CommandLine.Contains("DEVICE") Then
 
-                Dim DeviceSpecifiedOnCommandLine As String = CommandLine.Remove(0, CommandLine.IndexOf("DEVICE") + 6).Trim
+                Dim DeviceSpecifiedOnCommandLine As String = CommandLine.Remove(0, CommandLine.IndexOf("DEVICE") + "DEVICE".Length).Trim
 
                 Dim DeviceSpecifiedOnCommandLineInOriginalCase = OriginalCommandLine.Remove(0, OriginalCommandLine.Length - DeviceSpecifiedOnCommandLine.Length)
 
@@ -248,11 +296,10 @@ Module Main
 
                     gStartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
 
-#If DEBUG Then
+                    If gDebugFlag Then
+                        Console_WriteLineInColour("[ Starting master level = " & gStartingLevel & " ]", ConsoleColor.Cyan)
+                    End If
 
-                    Console_WriteLineInColour("[ Starting level = " & gStartingLevel & " ]", ConsoleColor.Cyan)
-
-#End If
 
                 Else
 
@@ -335,11 +382,11 @@ Module Main
 
                     gStartingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
 
-#If DEBUG Then
+                    If gDebugFlag Then
 
-                    Console_WriteLineInColour("[ Starting level = " & gStartingLevel & " ]", ConsoleColor.Cyan)
+                        Console_WriteLineInColour("[ Starting master level = " & gStartingLevel & " ]", ConsoleColor.Cyan)
 
-#End If
+                    End If
 
                 Catch ex As Exception
 
@@ -355,10 +402,105 @@ Module Main
 
             End If
 
+            ' this code setups to change the audio playback level for a specific application/program
+            ' of note, there is no equivalent option for setting the recording level of a application/program
+
+            If (CommandLine = "APPAUDIO") Then
+
+                gSessions = gDev.AudioSessionManager.Sessions
+
+                Dim count As Integer = 0
+
+                For i As Integer = 0 To gSessions.Count - 1
+                    Dim Process As Process = Process.GetProcessById(gSessions(i).GetProcessID)
+                    If (Process.ProcessName.ToUpper = "IDLE") OrElse (Process.ProcessName.ToUpper = "SHELLEXPERIENCEHOST") Then
+                    Else
+                        count += 1
+                    End If
+                Next
+
+                If count = 0 Then
+                    Console_WriteLineInColour("Could not find any applications that can have their audio level changed by SetVol.", ConsoleColor.White)
+                ElseIf count = 1 Then
+                    Console_WriteLineInColour("Found one application that can have its audio level changed by SetVol; it is:" & vbCrLf, ConsoleColor.White)
+                Else
+                    Console_WriteLineInColour("Found " & ConvertNumberToWords(count) & " applications that can have their audio levels changed by SetVol; these are:" & vbCrLf, ConsoleColor.White)
+                End If
+
+                For i As Integer = 0 To gSessions.Count - 1
+                    Dim Process As Process = Process.GetProcessById(gSessions(i).GetProcessID)
+                    If (Process.ProcessName.ToUpper = "IDLE") OrElse (Process.ProcessName.ToUpper = "SHELLEXPERIENCEHOST") Then
+                    Else
+                        Console_WriteLineInColour("   " & Process.ProcessName & " ( current audio level = " & gSessions(i).SimpleAudioVolume.Volume * 100 & " )", ConsoleColor.Gray)
+                    End If
+                Next
+
+                GoTo AllGood
+
+            ElseIf CommandLine.Contains("APPAUDIO") Then
+
+                Dim AppAudioSpecifiedOnCommandLine As String = CommandLine.Remove(0, CommandLine.IndexOf("APPAUDIO") + "APPAUDIO".Length).Trim
+
+                Dim AppAudioSpecifiedOnCommandLineInOriginalCase = OriginalCommandLine.Remove(0, OriginalCommandLine.ToUpper.IndexOf("APPAUDIO") + "APPAUDIO".Length).Trim
+
+                If AppAudioSpecifiedOnCommandLineInOriginalCase.ToUpper <> AppAudioSpecifiedOnCommandLine Then
+                    AppAudioSpecifiedOnCommandLineInOriginalCase = AppAudioSpecifiedOnCommandLineInOriginalCase.Remove(AppAudioSpecifiedOnCommandLine.Length)
+                End If
+
+                Dim CommandLineContainsAValidApp As Boolean = False
+
+                CommandLine = CommandLine.Remove(CommandLine.IndexOf("APPAUDIO")).Trim
+
+                gSessionIndex.Clear()
+
+                If gDeviceTable IsNot Nothing Then
+
+                    If AppAudioSpecifiedOnCommandLine.Length > 0 Then 'look for a specified app
+
+                        gSessions = gDev.AudioSessionManager.Sessions
+
+                        For i As Integer = 0 To gSessions.Count - 1
+
+                            Dim Process As Process = Process.GetProcessById(gSessions(i).GetProcessID)
+
+                            If Process.ProcessName.ToUpper = AppAudioSpecifiedOnCommandLine Then
+
+                                ApplicationName = AppAudioSpecifiedOnCommandLineInOriginalCase
+
+                                gSessionIndex.Add(i)
+
+                                CommandLineContainsAValidApp = True
+
+                                gSetAppAudioVolume = True
+
+                                If gDebugFlag Then
+                                    Console_WriteLineInColour("[ Starting audio level for application '" & ApplicationName & "' = " & gSessions(i).SimpleAudioVolume.Volume * 100 & " ]", ConsoleColor.Cyan)
+                                End If
+
+                                ' Exit For  ' this exit for is commented out so that we can check for multiple instances of the same application
+
+                            End If
+
+                        Next
+
+                        If gSetAppAudioVolume Then
+                        Else
+                            Console_WriteLineInColour("Error: an application called '" & AppAudioSpecifiedOnCommandLine & "' does not appear to be running.", ConsoleColor.Red)
+                            GoTo ErrorFound
+                        End If
+
+                    End If
+
+                End If
+
+            End If
+
+
             If CommandLine.Contains("WEBSITE") Then
                 Process.Start("https://www.rlatour.com/setvol")
                 CommandLine = CommandLine.Replace("WEBSITE", "").Trim
             End If
+
 
             If CommandLine.Contains("ALIGN") Then
                 If CommandLine.Contains("BALANCE") Then
@@ -369,25 +511,30 @@ Module Main
                 CommandLine = CommandLine.Replace("ALIGN", "").Trim
             End If
 
+
             If CommandLine.Contains("BEEP") Then
                 gBeepFlag = True
                 CommandLine = CommandLine.Replace("BEEP", "").Trim
             End If
+
 
             If CommandLine.Contains("REPORT") Then
                 CommandLine = CommandLine.Replace("REPORT", "").Trim
                 gReportFlag = True
             End If
 
+
             If CommandLine.Contains("UNMUTE") Then
                 gUnMuteFlag = True
                 CommandLine = CommandLine.Replace("UNMUTE", "").Trim
             End If
 
+
             If CommandLine.Contains("MUTE") Then
                 gMuteFlag = True
                 CommandLine = CommandLine.Replace("MUTE", "").Trim
             End If
+
 
             If gMuteFlag AndAlso gUnMuteFlag Then
                 Console_WriteLineInColour(" ")
@@ -395,9 +542,11 @@ Module Main
                 GoTo ErrorFound
             End If
 
+
             If CommandLine.Contains("NODEFAULT") Then
                 CommandLine = CommandLine.Replace("NODEFAULT", "").Trim
             End If
+
 
             Dim ws As String = CommandLine
             If ws.Contains("MAKEDEFAULTCOMM") Then
@@ -409,7 +558,9 @@ Module Main
                 End If
             End If
 
+
             If CommandLine.Contains("MAKEDEFAULTCOMM") Then
+
                 CommandLine = CommandLine.Replace("MAKEDEFAULTCOMM", "").Trim
 
                 If CommandLineContainsAValidDevice Then
@@ -418,12 +569,12 @@ Module Main
 
                 Else
                     Console_WriteLineInColour(" ")
-                    Console_WriteLineInColour("Error: makedevicecomm was sepecified without device option or a valid device being identified", ConsoleColor.Red)
+                    Console_WriteLineInColour("Error: makedevicecomm was specified without device option or a valid device being identified", ConsoleColor.Red)
                     GoTo ErrorFound
                 End If
 
-
             End If
+
 
             If CommandLine.Contains("MAKEDEFAULT") Then
                 CommandLine = CommandLine.Replace("MAKEDEFAULT", "").Trim
@@ -434,12 +585,12 @@ Module Main
 
                 Else
                     Console_WriteLineInColour(" ")
-                    Console_WriteLineInColour("Error: makedevice was sepecified without device option or a valid device being identified", ConsoleColor.Red)
+                    Console_WriteLineInColour("Error: makedevice was specified without device option or a valid device being identified", ConsoleColor.Red)
                     GoTo ErrorFound
                 End If
 
-
             End If
+
 
             If CommandLine.Contains("LISTEN") Then
 
@@ -518,6 +669,7 @@ Module Main
                 End If
 
             End If
+
 
             If CommandLine.Contains("OVER") Then
 
@@ -602,7 +754,6 @@ Module Main
 
                 WorkingLine = CommandLine.ToUpper
 
-
                 CommandLine = CommandLine.Remove(OverTimeNumberStartsAt - "OVER".Length, OverTimeNumberEndsAt - OverTimeNumberStartsAt + "OVER".Length).Trim
 
             End If
@@ -611,12 +762,13 @@ Module Main
 
             CommandLine = CommandLine.Trim
 
-            If CommandLine.Length = 0 Then GoTo AllGood
+            If CommandLine.Length = 0 Then GoTo SetAppAudioVolume
 
             If CommandLine.Contains(".") Then
                 Console_WriteLineInColour("Error: an unexpected period (""."") was found in the command line", ConsoleColor.Red)
                 GoTo ErrorFound
             End If
+
 
             If CommandLine.Contains("BALANCE") Then
 
@@ -720,12 +872,17 @@ Module Main
 
             End If
 
-            Dim NewVolume As Integer
-
+            'determine if string starts with a number
             ' +/- n
-            If (CommandLine.StartsWith("+") OrElse CommandLine.StartsWith("-")) Then
+            CommandLine = CommandLine.Trim
 
-                Dim WorkingLine As String = CommandLine.Remove(0, 1).Trim
+            If CommandLine.StartsWith("+") OrElse CommandLine.StartsWith("-") OrElse (IsNumeric(CommandLine.Substring(0, 1)) AndAlso gFadeTime > -1) Then
+
+                Dim WorkingLine As String = CommandLine
+
+                If WorkingLine.StartsWith("+") OrElse WorkingLine.StartsWith("-") Then
+                    WorkingLine = WorkingLine.Remove(0, 1).Trim()
+                End If
 
                 If ConvertFromWords(WorkingLine) > -1 Then
                     WorkingLine = ConvertFromWords(WorkingLine)
@@ -739,14 +896,38 @@ Module Main
 
                     If (DeltaVolume >= 0) AndAlso (DeltaVolume <= 100) Then
 
+                        If gSetAppAudioVolume Then
+
+                            ' in most cases if there are multiple sessions, they will all have the same starting volume
+                            ' regardless, if there are multiple sessions, 
+                            ' we will to use the highest volume of all them as the starting point for fading down, and
+                            ' the lowest volume of all them as the starting point for fading up
+
+                            If CommandLine.StartsWith("-") Then
+                                gStartingLevel = 0
+                                For Each i In gSessionIndex
+                                    gStartingLevel = Math.Max(gStartingLevel, gSessions(i).SimpleAudioVolume.Volume * 100)
+                                Next
+                            Else
+                                gStartingLevel = 100
+                                For Each i In gSessionIndex
+                                    gStartingLevel = Math.Min(gStartingLevel, gSessions(i).SimpleAudioVolume.Volume * 100)
+                                Next
+                            End If
+
+                        End If
+
                         Dim CurrentVolume As Integer = gStartingLevel
 
-                        If CommandLine.StartsWith("+") Then
+                        If CommandLine.StartsWith("-") Then
+                            NewVolume = CurrentVolume - DeltaVolume
+                            If NewVolume < 0 Then NewVolume = 0
+                        ElseIf CommandLine.StartsWith("+") Then
                             NewVolume = CurrentVolume + DeltaVolume
                             If NewVolume > 100 Then NewVolume = 100
                         Else
-                            NewVolume = CurrentVolume - DeltaVolume
-                            If NewVolume < 0 Then NewVolume = 0
+                            NewVolume = CInt(CommandLine)
+                            If NewVolume > 100 Then NewVolume = 100
                         End If
 
                         Dim NewVolSingle As Single = NewVolume / 100
@@ -775,6 +956,74 @@ Module Main
 
             ' zero to one hundred
             NewVolume = ConvertFromWords(CommandLine)
+
+SetAppAudioVolume:
+
+            'set app audio level
+
+            If gSetAppAudioVolume Then
+
+                For Each i In gSessionIndex
+
+                    If gDebugFlag Then
+                        Console.WriteLine("")
+                        Console_WriteLineInColour("[ The original audio level for application '" & ApplicationName & "' = " & gSessions(i).SimpleAudioVolume.Volume.ToString * 100 & " ]", ConsoleColor.Cyan)
+                    End If
+
+                    If (CommandLine = "") AndAlso (Not gMuteFlag) AndAlso (Not gUnMuteFlag) Then
+                        Console_WriteLineInColour("Warning: a new audio level was not specified for application '" & ApplicationName & "'.", ConsoleColor.Yellow)
+                        NewVolume = gSessions(i).SimpleAudioVolume.Volume * 100 ' use the current level
+                    End If
+
+                    If gMuteFlag Then
+                        gSessions(i).SimpleAudioVolume.Mute = True
+                        If gDebugFlag Then
+                            Console_WriteLineInColour("[ Application '" & ApplicationName & "' was muted ]", ConsoleColor.Cyan)
+                        End If
+                        gMuteFlag = False
+
+                    ElseIf gUnMuteFlag Then
+                        gSessions(i).SimpleAudioVolume.Mute = False
+                        If gDebugFlag Then
+                            Console_WriteLineInColour("[ Application '" & ApplicationName & "' was unmuted ]", ConsoleColor.Cyan)
+                        End If
+                        gUnMuteFlag = False
+
+                    Else
+
+                        If Int(gSessions(i).SimpleAudioVolume.Volume * 100) = NewVolume Then
+
+                            If gDebugFlag Then
+                                Console_WriteLineInColour("[ The audio level for application '" & ApplicationName & "' did not need to be updated ]", ConsoleColor.Yellow)
+                            End If
+
+                        ElseIf (NewVolume < 0 OrElse NewVolume > 100) Then
+
+                            If gDebugFlag Then
+                                Console_WriteLineInColour("[ The audio level for application '" & ApplicationName & "' was not updated as the update value specified was not between 0 and 100 inclusive ]", ConsoleColor.Red)
+                            End If
+
+                        Else
+
+                            gSessions(i).SimpleAudioVolume.Volume = NewVolume / 100
+                            If gDebugFlag Then
+                                Console_WriteLineInColour("[ The updated audio level for application '" & ApplicationName & "' = " & NewVolume & " ]", ConsoleColor.Cyan)
+                            End If
+
+                        End If
+
+                    End If
+
+                Next
+
+                GoTo AllGood
+
+            End If
+
+            If CommandLine.Length = 0 Then GoTo AllGood
+
+            ' set master audio level
+
             If ((NewVolume >= 0) AndAlso (NewVolume <= 100)) Then
                 Dim NewVolSingle As Single = NewVolume / 100
                 SetTheLevel(NewVolSingle)
@@ -797,8 +1046,7 @@ Module Main
             End Try
 
 
-
-            ' 0 to 100
+            ' absolute set from 0 to 100
             If ((CommandLine.Length > 0) AndAlso (CommandLine.Length < 4)) Then
 
                 Try
@@ -892,7 +1140,7 @@ AllGood:
 
             Else
 
-                Console.WriteLine("Master volume level = " & ReturnCode.ToString)
+                Console.WriteLine("Master audio level = " & ReturnCode.ToString)
                 Console.WriteLine("")
 
                 For x As Integer = 0 To gDev.AudioEndpointVolume.Channels.Count - 1
@@ -900,8 +1148,10 @@ AllGood:
                 Next
 
             End If
-   
+
         End If
+
+Beep:
 
         If gBeepFlag Then
 
@@ -927,15 +1177,25 @@ ReturnNow:
 
         EndingLevel = gDev.AudioEndpointVolume.MasterVolumeLevelScalar * 100
 
+        If gDebugFlag Then
+
+            Console.WriteLine("")
+
+            If gSetAppAudioVolume Then
+                For Each i In gSessionIndex
+                    Console_WriteLineInColour("[ Ending audio level for application '" & ApplicationName & "' = " & gSessions(i).SimpleAudioVolume.Volume * 100 & " ]", ConsoleColor.Cyan)
+                Next
+            End If
+
+            Console_WriteLineInColour("[ Ending master level = " & EndingLevel & " ]", ConsoleColor.Cyan)
+            Console_WriteLineInColour(" ", ConsoleColor.Cyan)
+            Console_WriteLineInColour("[ Return code = " & ReturnCode & " ]", ConsoleColor.Cyan)
+
 #If DEBUG Then
-
-        Console.WriteLine("")
-        Console_WriteLineInColour("[ Ending level = " & EndingLevel & " ]", ConsoleColor.Cyan)
-        Console_WriteLineInColour("[ Return code = " & ReturnCode & " ]", ConsoleColor.Cyan)
-
-        Console.ReadLine()
-
+            Console.ReadLine()
 #End If
+
+        End If
 
 WrapUp:
 
@@ -963,18 +1223,25 @@ WrapUp:
 
             End If
 
-
             If gFadeTime < 0 Then
 
                 'immediately set the new level
-                gDev.AudioEndpointVolume.MasterVolumeLevelScalar = NewLevel
+
+                If gSetAppAudioVolume Then
+                    For Each i In gSessionIndex
+                        gSessions(i).SimpleAudioVolume.Volume = NewLevel
+                    Next
+                Else
+                    gDev.AudioEndpointVolume.MasterVolumeLevelScalar = NewLevel
+                End If
 
             Else
 
-#If DEBUG Then
                 Dim OverallStopWatch As New Stopwatch
-                OverallStopWatch.Start()
-#End If
+
+                If gDebugFlag Then
+                    OverallStopWatch.Start()
+                End If
 
                 'set the new level in increments over a specified period of time
 
@@ -1011,7 +1278,13 @@ WrapUp:
                     x = Math.Round(x, 2)
                     If x > 1 Then x = 1
 
-                    gDev.AudioEndpointVolume.MasterVolumeLevelScalar = x
+                    If gSetAppAudioVolume Then
+                        For Each i In gSessionIndex
+                            gSessions(i).SimpleAudioVolume.Volume = x
+                        Next
+                    Else
+                        gDev.AudioEndpointVolume.MasterVolumeLevelScalar = x
+                    End If
 
                     Dim currentLineCursor As Integer = Console.CursorTop
                     Console.SetCursorPosition(0, Console.CursorTop)
@@ -1020,18 +1293,18 @@ WrapUp:
 
                     LoopProcessingStopWatch.Stop()
 
-                    'The next delay time = the optimal delay time - the time it takes to change the volume level and update the display - a small fudge factor to account for calculating the delay time
+                    'The next delay time = the optimal delay time - the time it takes to change the audio level and update the display - a small fudge factor to account for calculating the delay time
 
                     NextDelayTime = OptimalDelayTimeInMilliSeconds - CInt(LoopProcessingStopWatch.ElapsedMilliseconds) - 4
 
                 Next
 
-#If DEBUG Then
-                OverallStopWatch.Stop()
-                Console.WriteLine("")
-                Console.WriteLine("")
-                Console_WriteLineInColour("[ Total time to complete was = " & (OverallStopWatch.ElapsedMilliseconds / 1000).ToString & " seconds ]", ConsoleColor.Cyan)
-#End If
+                If gDebugFlag Then
+                    OverallStopWatch.Stop()
+                    Console.WriteLine("")
+                    Console.WriteLine("")
+                    Console_WriteLineInColour("[ Total time to complete was = " & (OverallStopWatch.ElapsedMilliseconds / 1000).ToString & " seconds ]", ConsoleColor.Cyan)
+                End If
 
             End If
 
@@ -1048,8 +1321,6 @@ WrapUp:
         Dim DefaultDeviceName_Play As String = String.Empty
         Dim DefaultDeviceName_Comm_Record As String = String.Empty
         Dim DefaultDeviceName_Comm_Play As String = String.Empty
-
-
 
         Try
 
@@ -1105,7 +1376,6 @@ WrapUp:
             End Try
 
             Try
-
 
                 If NumberOfDevices_Play > 0 Then
 
@@ -1185,9 +1455,9 @@ WrapUp:
 
         End While
 
-#If DEBUG Then
-        Console_WriteLineInColour("[ Listen samples taken = " & sampleCount & " ]", ConsoleColor.Cyan)
-#End If
+        If gDebugFlag Then
+            Console_WriteLineInColour("[ Listen samples taken = " & sampleCount & " ]", ConsoleColor.Cyan)
+        End If
 
         Return False
 
@@ -1244,7 +1514,7 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.4 Help")
+        Console_WriteLineInColour("SetVol v4.0 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
@@ -1261,6 +1531,16 @@ WrapUp:
         Console_WriteLineInColour("                   most devices will have at least two channel levels")
         Console_WriteLineInColour("                   with the first channel representing the left speaker and the second channel representing the right speaker")
         Console_WriteLineInColour(" ")
+        Console_WriteLineInColour(" appaudio app      used to set the audio level of a specific application/program")
+        Console_WriteLineInColour("                   when used without an app name, apps that can have their audio levels changed will be listed")
+        Console_WriteLineInColour("                   when used with an app name, this option should be proceeded by either a desired audio level, relative")
+        Console_WriteLineInColour("                   audio level, mute, or unmute. For example:")
+        Console_WriteLineInColour("                     75 appaudio Spotify")
+        Console_WriteLineInColour("                    +10 appaudio Spotify")
+        Console_WriteLineInColour("                     mute appaudio Spotify")
+        Console_WriteLineInColour("                     unmute appaudio Spotify")
+        Console_WriteLineInColour("                   note: SetVol can only change an app's audio level, it cannot change an app's recording level")
+        Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" balance c1:c2:cz  set the audio/recording device's channel levels")
         Console_WriteLineInColour("                   cl is the desired level of the first channel where c1 = 0 to 100")
         Console_WriteLineInColour("                   c2 is the desired level of the second channel where c2 = 0 to 100")
@@ -1268,27 +1548,30 @@ WrapUp:
         Console_WriteLineInColour("                   cz is the desired level of the last channel where cz = 0 to 100")
         Console_WriteLineInColour("                   values may be included for as many channels as the device supports")
         Console_WriteLineInColour("                   for example:")
-        Console_WriteLineInColour("                       50 balance 100:100")
+        Console_WriteLineInColour("                     50 balance 100:100")
         Console_WriteLineInColour("                        set the first and second channel (usually the left and right speakers) levels to 50")
-        Console_WriteLineInColour("                       100 balance 50:50")
+        Console_WriteLineInColour("                     100 balance 50:50")
         Console_WriteLineInColour("                        also set the first and second channel levels to 50")
-        Console_WriteLineInColour("                       100 balance 80:100:70:100:90:85:50:100")
-        Console_WriteLineInColour("                        set the eight  channel levels to the values specified")
-        Console_WriteLineInColour("                       50 balance 80:40")
+        Console_WriteLineInColour("                     100 balance 80:100:70:100:90:85:50:100")
+        Console_WriteLineInColour("                        set the eight channel levels to the values specified")
+        Console_WriteLineInColour("                     50 balance 80:40")
         Console_WriteLineInColour("                        set the first channel level to 40 (50 x 80%) and the second channel level 20 (50 x 40%)")
-        Console_WriteLineInColour("                    when the balance option is used the greatest of the channel levels becomes the new master level")
-        Console_WriteLineInColour("                    in the examples above the master level was specified")
-        Console_WriteLineInColour("                    if the master level is not specified the current master level value will be used")
-        Console_WriteLineInColour("                    and the master and channel levels be updated as in the last example above")
+        Console_WriteLineInColour("                   when the balance option is used the greatest of the channel levels becomes the new master level")
+        Console_WriteLineInColour("                   in the examples above the master level was specified")
+        Console_WriteLineInColour("                   if the master level is not specified the current master level value will be used")
+        Console_WriteLineInColour("                   and the master and channel levels be updated as in the last example above")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" beep              play a beep")
         Console_WriteLineInColour("                   if any changes to levels are being made, they will be made before the beep is played")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" device name       audio/recording device name")
+        Console_WriteLineInColour(" debug             show some additional displays")
+        Console_WriteLineInColour(" ")
+        Console_WriteLineInColour(" device name       used to set the audio/recording level of a specific device")
         Console_WriteLineInColour("                   when not used, SetVol will act upon the default audio device")
         Console_WriteLineInColour("                   when used with a valid device name, SetVol will act upon the named device")
         Console_WriteLineInColour("                   when used without a valid device name, all audio and recording devices will be displayed")
         Console_WriteLineInColour("                   when the device option is used it must be the last option specified on the command line")
+        Console_WriteLineInColour("                   note: the device and appaudio options cannot be used in the same command line")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" listen n          reports if a device is actively playing/recording sound")
         Console_WriteLineInColour("                   n represents the maximum number of seconds that SetVol will listen for a sound")
@@ -1303,28 +1586,29 @@ WrapUp:
         Console_WriteLineInColour("                   if the makedefault option is used, then the device option must be used too")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" makedefaultcomm   change the default communications device for playing/recording")
-        Console_WriteLineInColour("                   if the makedefaultcomm option is used, then the device option must be used too")
+        Console_WriteLineInColour("                   when the makedefaultcomm option is used the device option must be used too")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("                   note: makedefault and makedefaultcomm may not be used in the same command line")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" mute              turn mute on")
+        Console_WriteLineInColour(" mute              mute a device or application")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" unmute            turn mute off")
+        Console_WriteLineInColour(" unmute            unmute a device or application")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" nodefault         a pop-up error message will be displayed if a device is not specified and there is no default audio device")
         Console_WriteLineInColour("                   the use of this option suppresses that message")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" over n            evenly transition to the level being set over n seconds")
-        Console_WriteLineInColour("                   n must be greater than zero but less than or equal to 86,400 (one day)")
-        Console_WriteLineInColour("                   if the current level does not need to be changed, the program will exit without waiting the specified time")
+        Console_WriteLineInColour("                   must be greater than zero but less than or equal to 86,400 (one day)")
+        Console_WriteLineInColour("                   when the current level does not need to be changed the program will exit without waiting the specified time")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" report            displays a device's master and channel levels")
         Console_WriteLineInColour("                   the master level will be provided via SetVol's return code")
-        Console_WriteLineInColour("                       for example: if the device's master level is 60, SetVol's return code will be 60")
-        Console_WriteLineInColour("                   if the device is muted, the return code will be a negative number")
-        Console_WriteLineInColour("                   if a level is changed, the changed level is reported")
+        Console_WriteLineInColour("                     for example: if the device's master level is 60, SetVol's return code will be 60")
+        Console_WriteLineInColour("                   when the device is muted the return code will be a negative number")
+        Console_WriteLineInColour("                    for example: if the device's master level is 60 and the device is muted, SetVol's return code will be -60")
+        Console_WriteLineInColour("                   when a level is changed, the changed level is reported")
         Console_WriteLineInColour("                   this option may also be used with the device option")
-        Console_WriteLineInColour("                   if the device option is not used, the default audio device will be used")
+        Console_WriteLineInColour("                   when the device option is not used, the default audio device will be used")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" website           visit the SetVol website")
         Console_WriteLineInColour(" ")
@@ -1335,15 +1619,19 @@ WrapUp:
         Console_WriteLineInColour(" setvol 60 over 30")
         Console_WriteLineInColour(" setvol 50 balance 80:100")
         Console_WriteLineInColour(" setvol mute")
+        Console_WriteLineInColour(" setvol appaudio")
+        Console_WriteLineInColour(" setvol 35 appaudio Spotify")
+        Console_WriteLineInColour(" setvol 35 appaudio Spotify debug")
         Console_WriteLineInColour(" setvol device")
-        Console_WriteLineInColour(" setvol 32 report")
         Console_WriteLineInColour(" setvol 75 device Speakers (Realtek USB2.0 Audio))")
+        Console_WriteLineInColour(" setvol report")
+        Console_WriteLineInColour(" setvol report device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol listen 2.5 device Speakers (Realtek USB2.0 Audio)")
         Console_WriteLineInColour(" setvol makedefault device Speakers (Realtek USB2.0 Audio)")
         Console_WriteLineInColour(" setvol makedefaultcomm device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v3.4", ConsoleColor.Yellow)
+        Console_WriteLineInColour("SetVol v4.0", ConsoleColor.Yellow)
         Console_WriteLineInColour("Copyright © 2023, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
         Console_WriteLineInColour(" ")
@@ -1370,127 +1658,171 @@ WrapUp:
     End Sub
 
     <System.Diagnostics.DebuggerStepThrough()>
+    Private Function ConvertNumberToWords(ByVal input As Integer) As String
+
+        Select Case input
+            Case 0
+                Return "zero"
+            Case 1
+                Return "one"
+            Case 2
+                Return "two"
+            Case 3
+                Return "three"
+            Case 4
+                Return "four"
+            Case 5
+                Return "five"
+            Case 6
+                Return "six"
+            Case 7
+                Return "seven"
+            Case 8
+                Return "eight"
+            Case 9
+                Return "nine"
+            Case 10
+                Return "ten"
+            Case Else
+                Return input.ToString
+
+        End Select
+
+    End Function
+
+    <System.Diagnostics.DebuggerStepThrough()>
     Private Function ConvertFromWords(ByVal input As String) As Integer
 
-        Dim NumberTable(100) As String
+        Try
 
-        NumberTable(0) = "zero"
-        NumberTable(1) = "one"
-        NumberTable(2) = "two"
-        NumberTable(3) = "three"
-        NumberTable(4) = "four"
-        NumberTable(5) = "five"
-        NumberTable(6) = "six"
-        NumberTable(7) = "seven"
-        NumberTable(8) = "eight"
-        NumberTable(9) = "nine"
-        NumberTable(10) = "ten"
-        NumberTable(11) = "eleven"
-        NumberTable(12) = "twelve"
-        NumberTable(13) = "thirteen"
-        NumberTable(14) = "fourteen"
-        NumberTable(15) = "fifteen"
-        NumberTable(16) = "sixteen"
-        NumberTable(17) = "seventeen"
-        NumberTable(18) = "eighteen"
-        NumberTable(19) = "nineteen"
-        NumberTable(20) = "twenty"
-        NumberTable(21) = "twenty-one"
-        NumberTable(22) = "twenty-two"
-        NumberTable(23) = "twenty-three"
-        NumberTable(24) = "twenty-four"
-        NumberTable(25) = "twenty-five"
-        NumberTable(26) = "twenty-six"
-        NumberTable(27) = "twenty-seven"
-        NumberTable(28) = "twenty-eight"
-        NumberTable(29) = "twenty-nine"
-        NumberTable(30) = "thirty"
-        NumberTable(31) = "thirty-one"
-        NumberTable(32) = "thirty-two"
-        NumberTable(33) = "thirty-three"
-        NumberTable(34) = "thirty-four"
-        NumberTable(35) = "thirty-five"
-        NumberTable(36) = "thirty-six"
-        NumberTable(37) = "thirty-seven"
-        NumberTable(38) = "thirty-eight"
-        NumberTable(39) = "thirty-nine"
-        NumberTable(40) = "forty"
-        NumberTable(41) = "forty-one"
-        NumberTable(42) = "forty-two"
-        NumberTable(43) = "forty-three"
-        NumberTable(44) = "forty-four"
-        NumberTable(45) = "forty-five"
-        NumberTable(46) = "forty-six"
-        NumberTable(47) = "forty-seven"
-        NumberTable(48) = "forty-eight"
-        NumberTable(49) = "forty-nine"
-        NumberTable(50) = "fifty"
-        NumberTable(51) = "fifty-one"
-        NumberTable(52) = "fifty-two"
-        NumberTable(53) = "fifty-three"
-        NumberTable(54) = "fifty-four"
-        NumberTable(55) = "fifty-five"
-        NumberTable(56) = "fifty-six"
-        NumberTable(57) = "fifty-seven"
-        NumberTable(58) = "fifty-eight"
-        NumberTable(59) = "fifty-nine"
-        NumberTable(60) = "sixty"
-        NumberTable(61) = "sixty-one"
-        NumberTable(62) = "sixty-two"
-        NumberTable(63) = "sixty-three"
-        NumberTable(64) = "sixty-four"
-        NumberTable(65) = "sixty-five"
-        NumberTable(66) = "sixty-six"
-        NumberTable(67) = "sixty-seven"
-        NumberTable(68) = "sixty-eight"
-        NumberTable(69) = "sixty-nine"
-        NumberTable(70) = "seventy"
-        NumberTable(71) = "seventy-one"
-        NumberTable(72) = "seventy-two"
-        NumberTable(73) = "seventy-three"
-        NumberTable(74) = "seventy-four"
-        NumberTable(75) = "seventy-five"
-        NumberTable(76) = "seventy-six"
-        NumberTable(77) = "seventy-seven"
-        NumberTable(78) = "seventy-eight"
-        NumberTable(79) = "seventy-nine"
-        NumberTable(80) = "eighty"
-        NumberTable(81) = "eighty-one"
-        NumberTable(82) = "eighty-two"
-        NumberTable(83) = "eighty-three"
-        NumberTable(84) = "eighty-four"
-        NumberTable(85) = "eighty-five"
-        NumberTable(86) = "eighty-six"
-        NumberTable(87) = "eighty-seven"
-        NumberTable(88) = "eighty-eight"
-        NumberTable(89) = "eighty-nine"
-        NumberTable(90) = "ninety"
-        NumberTable(91) = "ninety-one"
-        NumberTable(92) = "ninety-two"
-        NumberTable(93) = "ninety-three"
-        NumberTable(94) = "ninety-four"
-        NumberTable(95) = "ninety-five"
-        NumberTable(96) = "ninety-six"
-        NumberTable(97) = "ninety-seven"
-        NumberTable(98) = "ninety-eight"
-        NumberTable(99) = "ninety-nine"
-        NumberTable(100) = "one hundred"
+            Dim NumberTable(100) As String
 
-        Dim TestCase As String
+            NumberTable(0) = "zero"
+            NumberTable(1) = "one"
+            NumberTable(2) = "two"
+            NumberTable(3) = "three"
+            NumberTable(4) = "four"
+            NumberTable(5) = "five"
+            NumberTable(6) = "six"
+            NumberTable(7) = "seven"
+            NumberTable(8) = "eight"
+            NumberTable(9) = "nine"
+            NumberTable(10) = "ten"
+            NumberTable(11) = "eleven"
+            NumberTable(12) = "twelve"
+            NumberTable(13) = "thirteen"
+            NumberTable(14) = "fourteen"
+            NumberTable(15) = "fifteen"
+            NumberTable(16) = "sixteen"
+            NumberTable(17) = "seventeen"
+            NumberTable(18) = "eighteen"
+            NumberTable(19) = "nineteen"
+            NumberTable(20) = "twenty"
+            NumberTable(21) = "twenty-one"
+            NumberTable(22) = "twenty-two"
+            NumberTable(23) = "twenty-three"
+            NumberTable(24) = "twenty-four"
+            NumberTable(25) = "twenty-five"
+            NumberTable(26) = "twenty-six"
+            NumberTable(27) = "twenty-seven"
+            NumberTable(28) = "twenty-eight"
+            NumberTable(29) = "twenty-nine"
+            NumberTable(30) = "thirty"
+            NumberTable(31) = "thirty-one"
+            NumberTable(32) = "thirty-two"
+            NumberTable(33) = "thirty-three"
+            NumberTable(34) = "thirty-four"
+            NumberTable(35) = "thirty-five"
+            NumberTable(36) = "thirty-six"
+            NumberTable(37) = "thirty-seven"
+            NumberTable(38) = "thirty-eight"
+            NumberTable(39) = "thirty-nine"
+            NumberTable(40) = "forty"
+            NumberTable(41) = "forty-one"
+            NumberTable(42) = "forty-two"
+            NumberTable(43) = "forty-three"
+            NumberTable(44) = "forty-four"
+            NumberTable(45) = "forty-five"
+            NumberTable(46) = "forty-six"
+            NumberTable(47) = "forty-seven"
+            NumberTable(48) = "forty-eight"
+            NumberTable(49) = "forty-nine"
+            NumberTable(50) = "fifty"
+            NumberTable(51) = "fifty-one"
+            NumberTable(52) = "fifty-two"
+            NumberTable(53) = "fifty-three"
+            NumberTable(54) = "fifty-four"
+            NumberTable(55) = "fifty-five"
+            NumberTable(56) = "fifty-six"
+            NumberTable(57) = "fifty-seven"
+            NumberTable(58) = "fifty-eight"
+            NumberTable(59) = "fifty-nine"
+            NumberTable(60) = "sixty"
+            NumberTable(61) = "sixty-one"
+            NumberTable(62) = "sixty-two"
+            NumberTable(63) = "sixty-three"
+            NumberTable(64) = "sixty-four"
+            NumberTable(65) = "sixty-five"
+            NumberTable(66) = "sixty-six"
+            NumberTable(67) = "sixty-seven"
+            NumberTable(68) = "sixty-eight"
+            NumberTable(69) = "sixty-nine"
+            NumberTable(70) = "seventy"
+            NumberTable(71) = "seventy-one"
+            NumberTable(72) = "seventy-two"
+            NumberTable(73) = "seventy-three"
+            NumberTable(74) = "seventy-four"
+            NumberTable(75) = "seventy-five"
+            NumberTable(76) = "seventy-six"
+            NumberTable(77) = "seventy-seven"
+            NumberTable(78) = "seventy-eight"
+            NumberTable(79) = "seventy-nine"
+            NumberTable(80) = "eighty"
+            NumberTable(81) = "eighty-one"
+            NumberTable(82) = "eighty-two"
+            NumberTable(83) = "eighty-three"
+            NumberTable(84) = "eighty-four"
+            NumberTable(85) = "eighty-five"
+            NumberTable(86) = "eighty-six"
+            NumberTable(87) = "eighty-seven"
+            NumberTable(88) = "eighty-eight"
+            NumberTable(89) = "eighty-nine"
+            NumberTable(90) = "ninety"
+            NumberTable(91) = "ninety-one"
+            NumberTable(92) = "ninety-two"
+            NumberTable(93) = "ninety-three"
+            NumberTable(94) = "ninety-four"
+            NumberTable(95) = "ninety-five"
+            NumberTable(96) = "ninety-six"
+            NumberTable(97) = "ninety-seven"
+            NumberTable(98) = "ninety-eight"
+            NumberTable(99) = "ninety-nine"
+            NumberTable(100) = "one hundred"
 
-        TestCase = input.ToLower.Trim
-        For x As Integer = 0 To 100
-            If NumberTable(x) = TestCase Then
-                Return x
+            Dim TestCase As String
+
+            TestCase = input.ToLower.Trim
+            For x As Integer = 0 To 100
+                If NumberTable(x) = TestCase Then
+                    Return x
+                End If
+            Next
+
+            TestCase = TestCase.Replace(" ", "-")
+            For x As Integer = 21 To 99
+                If NumberTable(x) = TestCase Then
+                    Return x
+                End If
+            Next
+
+            Dim TestNumber As Integer = CInt(TestCase)
+            If TestNumber >= 0 And TestNumber <= 100 Then
+                Return TestNumber
             End If
-        Next
 
-        TestCase = TestCase.Replace(" ", "-")
-        For x As Integer = 21 To 99
-            If NumberTable(x) = TestCase Then
-                Return x
-            End If
-        Next
+        Catch ex As Exception
+
+        End Try
 
         Return -1
 
