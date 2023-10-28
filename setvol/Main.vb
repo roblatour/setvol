@@ -81,7 +81,7 @@ Module Main
         'CommandLine = "+20"
         'CommandLine = "+200"
         'CommandLine = "-10"
-        CommandLine = "50 over 15"
+        'CommandLine = "50 over 15"
         'CommandLine = "50 over -25"
         'CommandLine = "71 over 10.55555"
         'CommandLine = "5c0 over 10.5"
@@ -139,6 +139,8 @@ Module Main
         'CommandLine = "-12 over 10 appaudio SnagitEditor"
         'CommandLine = "100 appaudio vlc"
         'CommandLine = "debug"
+        'CommandLine = "SetVol 40 balance 100:100:0:0:0:89"
+        CommandLine = "SetVol 40 balance 100:100:0:0:0:91"
 
 #Else
 
@@ -850,12 +852,12 @@ Module Main
 
                         Else
 
-                            test = Mid(WorkingLine, BalanceEndsAt)
+                            test = Mid(WorkingLine, BalanceEndsAt, 1)
 
                             If ":01234567890".Contains(test) Then
-                                KeepGoing = False
-                            Else
                                 BalanceEndsAt += 1
+                            Else
+                                KeepGoing = False
                             End If
                         End If
 
@@ -1514,7 +1516,7 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v4.0 Help")
+        Console_WriteLineInColour("SetVol v4.1 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
@@ -1631,7 +1633,7 @@ WrapUp:
         Console_WriteLineInColour(" setvol makedefaultcomm device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v4.0", ConsoleColor.Yellow)
+        Console_WriteLineInColour("SetVol v4.1", ConsoleColor.Yellow)
         Console_WriteLineInColour("Copyright © 2023, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
         Console_WriteLineInColour(" ")

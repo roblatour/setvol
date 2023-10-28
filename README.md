@@ -7,7 +7,7 @@ A downloadable signed executable of the program is available from  [https://rlat
 
 For more informaiton please visit  [https://rlatour.com/setvol](https://rlatour.com/setvol)
 
-The project is built upon the .net framework 4.6.2 and includes the following:
+The project is built upon the .net framework 4.7.2 and includes the following:
 
 ![components](https://github.com/roblatour/setvol/blob/main/components.jpg)
 
