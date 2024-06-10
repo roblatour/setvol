@@ -14,3 +14,6 @@ The project is built upon the .net framework 4.7.2 and includes the following:
 Thanks also to IronRazerz for a significant portion of the 'makedefault' functionality as excerpted from:
 https://social.msdn.microsoft.com/Forums/windowsdesktop/en-US/3c437708-0e90-483d-b906-63282ddd2d7b/change-audio-input
 
+## Support
+
+[<img alt="buy me  a coffee" width="200px" src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" />](https://www.buymeacoffee.com/roblatour)
