@@ -1,4 +1,4 @@
-﻿' SetVol 4.0, Copyright © 2023, Rob Latour  
+﻿' SetVol 4.2, Copyright © 2024, Rob Latour  
 '             https://www.raltour.com/setvol
 ' License MIT https://opensource.org/licenses/MIT
 ' Source      https://github.com/roblatour/setvol
@@ -63,6 +63,9 @@ Module Main
 
     Private gSetAppAudioVolume As Boolean = False
 
+    Private Const specialCopyrightChar As Char = ChrW(&HA9)
+    Private Const specialRegistratrionChar As Char = ChrW(&HAE)
+
     Sub Main()
 
         Dim ReturnCode As Integer = 0
@@ -95,7 +98,7 @@ Module Main
         'CommandLine = "1.5"
         'CommandLine = "beep device"
         'CommandLine = "unmute"
-        'CommandLine = "report"
+        CommandLine = "report"
         'CommandLine = "report device Microphone (Yeti Stereo Microphone)"
         'CommandLine = "report device Headphones (2- Realtek USB2.0 Audio)"
         'CommandLine = "device"
@@ -140,8 +143,8 @@ Module Main
         'CommandLine = "100 appaudio vlc"
         'CommandLine = "debug"
         'CommandLine = "SetVol 40 balance 100:100:0:0:0:89"
-        CommandLine = "SetVol 40 balance 100:100:0:0:0:91"
-
+        'CommandLine = "SetVol 40 balance 100:100:0:0:0:91"
+        'CommandLine = "SetVol 100 balance 100:100:100:100:100:100"
 #Else
 
         CommandLine = Environment.CommandLine
@@ -278,9 +281,13 @@ Module Main
 
                     If DeviceSpecifiedOnCommandLine.Length > 0 Then 'look for a specified device
 
+                        Dim revisedDeviceName As String = String.Empty ' v4.2 added revised Device Name testing
+
                         For Each DeviceEntry As DeviceTableStructure In gDeviceTable
 
-                            If DeviceSpecifiedOnCommandLine = DeviceEntry.DeviceName.ToUpper Then
+                            revisedDeviceName = DeviceEntry.DeviceName.Replace(specialCopyrightChar, "").Replace(specialRegistratrionChar, "").ToUpper()
+
+                            If (DeviceSpecifiedOnCommandLine = DeviceEntry.DeviceName.ToUpper) OrElse (DeviceSpecifiedOnCommandLine = revisedDeviceName) Then
                                 DeviceMatchFound = True
                                 IndentifiedDeviceName = DeviceEntry.DeviceName
                                 gDev = DeviceEntry.EndPoint
@@ -1516,7 +1523,7 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v4.1 Help")
+        Console_WriteLineInColour("SetVol v4.2 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
@@ -1633,7 +1640,7 @@ WrapUp:
         Console_WriteLineInColour(" setvol makedefaultcomm device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v4.1", ConsoleColor.Yellow)
+        Console_WriteLineInColour("SetVol v4.2", ConsoleColor.Yellow)
         Console_WriteLineInColour("Copyright © 2023, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
         Console_WriteLineInColour(" ")
