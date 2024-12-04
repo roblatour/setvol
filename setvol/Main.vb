@@ -506,7 +506,7 @@ Module Main
 
 
             If CommandLine.Contains("WEBSITE") Then
-                Process.Start("https://www.rlatour.com/setvol")
+                Process.Start("https://github.com/roblatour/setvol")
                 CommandLine = CommandLine.Replace("WEBSITE", "").Trim
             End If
 
@@ -1523,7 +1523,7 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v4.2 Help")
+        Console_WriteLineInColour("SetVol v4.3 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
@@ -1640,15 +1640,14 @@ WrapUp:
         Console_WriteLineInColour(" setvol makedefaultcomm device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v4.2", ConsoleColor.Yellow)
-        Console_WriteLineInColour("Copyright © 2023, Rob Latour", ConsoleColor.Yellow, True)
-        Console_WriteLineInColour("https://rlatour.com/setvol", ConsoleColor.Yellow)
-        Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol is licensed under the MIT License", ConsoleColor.Cyan)
-        Console_WriteLineInColour("https://opensource.org/licenses/MIT", ConsoleColor.Cyan)
+        Console_WriteLineInColour("SetVol v4.3", ConsoleColor.Yellow)
+        Console_WriteLineInColour("Copyright © 2024, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("SetVol is open source", ConsoleColor.Cyan)
         Console_WriteLineInColour("https://github.com/roblatour/setvol", ConsoleColor.Cyan)
+        Console_WriteLineInColour(" ")
+        Console_WriteLineInColour("SetVol is licensed under the MIT License", ConsoleColor.Cyan)
+        Console_WriteLineInColour("https://github.com/roblatour/setvol/blob/main/LICENSE", ConsoleColor.Cyan)
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("SetVol makes use of Fody and Costura.Fody", ConsoleColor.Cyan)
         Console_WriteLineInColour("Both are licensed under the MIT License", ConsoleColor.Cyan)
