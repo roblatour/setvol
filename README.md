@@ -1,15 +1,14 @@
 ﻿# SetVol (v4.3 December 4, 2024)
 SetVol is a free open source command line program for Windows to change and report on your computer's audio and recording levels.  It also allows you to set your default audio and recording devices.
 
-# License
-SetVol is licensed under a [MIT license](https://github.com/roblatour/setvol/blob/main/LICENSE)
-
 ## Download 
 
-You are welcome to download and use it for free on as many computers as you would like.
+You are welcome to download and use SetVol for free on as many computers as you would like.
 
 A downloadable zipped signed executable of the program is available from [here](https://6ec1f0a2f74d4d0c2019-591364a760543a57f40bab2c37672676.ssl.cf5.rackcdn.com/SetVol.zip).
 
+# License
+SetVol is licensed under a [MIT license](https://github.com/roblatour/setvol/blob/main/LICENSE)
 
 ## Setup
 
