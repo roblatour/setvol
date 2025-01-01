@@ -1,4 +1,4 @@
-﻿' SetVol 4.2, Copyright © 2024, Rob Latour  
+﻿' SetVol 4.2, Copyright © 2025, Rob Latour  
 '             https://www.raltour.com/setvol
 ' License MIT https://opensource.org/licenses/MIT
 ' Source      https://github.com/roblatour/setvol
@@ -19,6 +19,12 @@
 
 Imports NAudio.CoreAudioApi
 Imports NAudio.Wave
+Imports System
+Imports System.Linq
+Imports System.Diagnostics
+Imports System.ServiceProcess
+Imports System.Runtime.InteropServices
+
 Module Main
 
     ' Global variables
@@ -26,6 +32,7 @@ Module Main
     Private gEenumer As MMDeviceEnumerator = New MMDeviceEnumerator()
     Private gDev As MMDevice
     Private gRecorder As WaveInEvent
+
     Private Enum PlayOrRecordEnum
         Play = 0
         Record = 1
@@ -62,6 +69,7 @@ Module Main
     Private gSessionIndex As New List(Of Integer)
 
     Private gSetAppAudioVolume As Boolean = False
+    Private gSetAppAudioVolumeForSystemSounds As Boolean = False
 
     Private Const specialCopyrightChar As Char = ChrW(&HA9)
     Private Const specialRegistratrionChar As Char = ChrW(&HAE)
@@ -98,7 +106,7 @@ Module Main
         'CommandLine = "1.5"
         'CommandLine = "beep device"
         'CommandLine = "unmute"
-        CommandLine = "report"
+        'CommandLine = "report"
         'CommandLine = "report device Microphone (Yeti Stereo Microphone)"
         'CommandLine = "report device Headphones (2- Realtek USB2.0 Audio)"
         'CommandLine = "device"
@@ -127,7 +135,10 @@ Module Main
         'CommandLine = "debug 50 device Microphone (Yeti Stereo Microphone) debug"
         'CommandLine = "listen device"
         'CommandLine = "device jjjjj"
-        'CommandLine = "25 appaudio vlc"
+        'CommandLine = "appaudio"
+        'CommandLine = "50 appaudio snagiteditor"
+        'CommandLine = "50 appaudio systemsounds"
+        CommandLine = "mute appaudio systemsounds"
         'CommandLine = "-15 over 15 appaudio vlc"
         'CommandLine = "debug 32 appaudio vlc"
         'CommandLine = "32 appaudio vlc debug"
@@ -175,6 +186,17 @@ Module Main
         Environment.Exit(ReturnCode)
 
     End Sub
+
+    ' Function to check if the session is the system sounds session
+    Private Function IsSystemSoundsSession(session As AudioSessionControl) As Boolean
+        Try
+            ' System sounds session typically does not have an associated process
+            Dim processID = session.GetProcessID()
+            Return processID = 0
+        Catch ex As Exception
+            Return False
+        End Try
+    End Function
     Private Function MainLine(CommandLine As String) As Integer
 
         Dim ReturnCode As Integer = 0
@@ -420,29 +442,60 @@ Module Main
 
                 Dim count As Integer = 0
 
+                Dim uniqueProcessNames As New List(Of String)
+
                 For i As Integer = 0 To gSessions.Count - 1
                     Dim Process As Process = Process.GetProcessById(gSessions(i).GetProcessID)
                     If (Process.ProcessName.ToUpper = "IDLE") OrElse (Process.ProcessName.ToUpper = "SHELLEXPERIENCEHOST") Then
                     Else
-                        count += 1
+                        If Not uniqueProcessNames.Contains(Process.ProcessName) Then
+                            uniqueProcessNames.Add(Process.ProcessName)
+                            count += 1
+                        End If
                     End If
                 Next
+
+                Console_WriteLineInColour(" ", ConsoleColor.White)
 
                 If count = 0 Then
                     Console_WriteLineInColour("Could not find any applications that can have their audio level changed by SetVol.", ConsoleColor.White)
                 ElseIf count = 1 Then
-                    Console_WriteLineInColour("Found one application that can have its audio level changed by SetVol; it is:" & vbCrLf, ConsoleColor.White)
+                    Console_WriteLineInColour("Found one application that can have its audio level changed, it is:" & vbCrLf, ConsoleColor.White)
                 Else
-                    Console_WriteLineInColour("Found " & ConvertNumberToWords(count) & " applications that can have their audio levels changed by SetVol; these are:" & vbCrLf, ConsoleColor.White)
+                    Console_WriteLineInColour("Found " & ConvertNumberToWords(count) & " applications that can have their audio levels changed, these are:" & vbCrLf, ConsoleColor.White)
                 End If
+
+                uniqueProcessNames.Clear()
 
                 For i As Integer = 0 To gSessions.Count - 1
                     Dim Process As Process = Process.GetProcessById(gSessions(i).GetProcessID)
                     If (Process.ProcessName.ToUpper = "IDLE") OrElse (Process.ProcessName.ToUpper = "SHELLEXPERIENCEHOST") Then
                     Else
-                        Console_WriteLineInColour("   " & Process.ProcessName & " ( current audio level = " & gSessions(i).SimpleAudioVolume.Volume * 100 & " )", ConsoleColor.Gray)
+                        If Not uniqueProcessNames.Contains(Process.ProcessName) Then
+                            Console_WriteLineInColour("   " & Process.ProcessName, ConsoleColor.Gray)
+                            uniqueProcessNames.Add(Process.ProcessName)
+                        End If
                     End If
                 Next
+
+                Console_WriteLineInColour(" ", ConsoleColor.White)
+
+                If count = 0 Then
+                    Console_WriteLineInColour("However, the level for Windows system sounds can be changed.", ConsoleColor.White)
+                Else
+                    Console_WriteLineInColour("Additionally, the level for Windows system sounds can be changed.", ConsoleColor.White)
+                End If
+
+                Console_WriteLineInColour(" ", ConsoleColor.White)
+                Console_WriteLineInColour("To change one of the above use:", ConsoleColor.White)
+                Console_WriteLineInColour("    setvol n appaudio x", ConsoleColor.White)
+                Console_WriteLineInColour("    where n is the new level, between 0 and 100, or either mute or unmute", ConsoleColor.White)
+                Console_WriteLineInColour("    and x is either the name of the application (as shown above) or SystemSounds", ConsoleColor.White)
+                Console_WriteLineInColour(" ", ConsoleColor.White)
+                Console_WriteLineInColour("note: Windows maintains the application audio levels and its system sound level relative to the master volume", ConsoleColor.White)
+                Console_WriteLineInColour("      So, for example, setvol 50 appaudio Spotify", ConsoleColor.White)
+                Console_WriteLineInColour("      will set Spotify's audio level to 50 percent of the current master volume", ConsoleColor.White)
+                Console_WriteLineInColour("      and Windows will automatically update Spotify's audio level in relative proportions whenever the master volume changes", ConsoleColor.White)
 
                 GoTo AllGood
 
@@ -466,36 +519,50 @@ Module Main
 
                     If AppAudioSpecifiedOnCommandLine.Length > 0 Then 'look for a specified app
 
-                        gSessions = gDev.AudioSessionManager.Sessions
+                        If AppAudioSpecifiedOnCommandLine = "SYSTEMSOUNDS" Then
 
-                        For i As Integer = 0 To gSessions.Count - 1
+                            gSetAppAudioVolumeForSystemSounds = True
 
-                            Dim Process As Process = Process.GetProcessById(gSessions(i).GetProcessID)
+                        Else
 
-                            If Process.ProcessName.ToUpper = AppAudioSpecifiedOnCommandLine Then
+                            gSessions = gDev.AudioSessionManager.Sessions
 
-                                ApplicationName = AppAudioSpecifiedOnCommandLineInOriginalCase
+                            Dim LastApplicationReported As String = ""
 
-                                gSessionIndex.Add(i)
+                            For i As Integer = 0 To gSessions.Count - 1
 
-                                CommandLineContainsAValidApp = True
+                                Dim Process As Process = Process.GetProcessById(gSessions(i).GetProcessID)
 
-                                gSetAppAudioVolume = True
+                                If Process.ProcessName.ToUpper = AppAudioSpecifiedOnCommandLine Then
 
-                                If gDebugFlag Then
-                                    Console_WriteLineInColour("[ Starting audio level for application '" & ApplicationName & "' = " & gSessions(i).SimpleAudioVolume.Volume * 100 & " ]", ConsoleColor.Cyan)
+                                    ApplicationName = AppAudioSpecifiedOnCommandLineInOriginalCase
+
+                                    gSessionIndex.Add(i)
+
+                                    CommandLineContainsAValidApp = True
+
+                                    gSetAppAudioVolume = True
+
+                                    If gDebugFlag Then
+                                        If ApplicationName <> LastApplicationReported Then
+                                            Console_WriteLineInColour("[ Starting audio level for application '" & ApplicationName & "' = " & gSessions(i).SimpleAudioVolume.Volume * 100 & " ]", ConsoleColor.Cyan)
+                                        End If
+                                    End If
+
+                                    LastApplicationReported = ApplicationName
+
+                                    'Exit For  'for is commented out so that we can check for multiple instances of the same application  ' testing here
+
                                 End If
 
-                                ' Exit For  ' this exit for is commented out so that we can check for multiple instances of the same application
+                            Next
 
+                            If gSetAppAudioVolume Then
+                            Else
+                                Console_WriteLineInColour("Error: an application called '" & AppAudioSpecifiedOnCommandLine & "' does not appear to be running.", ConsoleColor.Red)
+                                GoTo ErrorFound
                             End If
 
-                        Next
-
-                        If gSetAppAudioVolume Then
-                        Else
-                            Console_WriteLineInColour("Error: an application called '" & AppAudioSpecifiedOnCommandLine & "' does not appear to be running.", ConsoleColor.Red)
-                            GoTo ErrorFound
                         End If
 
                     End If
@@ -503,7 +570,6 @@ Module Main
                 End If
 
             End If
-
 
             If CommandLine.Contains("WEBSITE") Then
                 Process.Start("https://github.com/roblatour/setvol")
@@ -972,29 +1038,41 @@ SetAppAudioVolume:
 
             If gSetAppAudioVolume Then
 
+                Dim LastApplicationReported As String = ""
+
                 For Each i In gSessionIndex
 
-                    If gDebugFlag Then
+                    If gDebugFlag AndAlso (ApplicationName <> LastApplicationReported) Then
                         Console.WriteLine("")
                         Console_WriteLineInColour("[ The original audio level for application '" & ApplicationName & "' = " & gSessions(i).SimpleAudioVolume.Volume.ToString * 100 & " ]", ConsoleColor.Cyan)
                     End If
 
                     If (CommandLine = "") AndAlso (Not gMuteFlag) AndAlso (Not gUnMuteFlag) Then
-                        Console_WriteLineInColour("Warning: a new audio level was not specified for application '" & ApplicationName & "'.", ConsoleColor.Yellow)
-                        NewVolume = gSessions(i).SimpleAudioVolume.Volume * 100 ' use the current level
+                        If (ApplicationName <> LastApplicationReported) Then
+                            Console_WriteLineInColour("Error: a new audio level was not specified for application '" & ApplicationName & "'.", ConsoleColor.Red)
+                        End If
+                        gErrorExplained = True ' changed this from a warning to an error in version 4.4
+                        ' NewVolume = gSessions(i).SimpleAudioVolume.Volume * 100 ' use the current level
+                        GoTo ErrorFound
                     End If
 
                     If gMuteFlag Then
+
                         gSessions(i).SimpleAudioVolume.Mute = True
-                        If gDebugFlag Then
-                            Console_WriteLineInColour("[ Application '" & ApplicationName & "' was muted ]", ConsoleColor.Cyan)
+                        If gDebugFlag AndAlso (ApplicationName <> LastApplicationReported) Then
+                            If (ApplicationName <> LastApplicationReported) Then
+                                Console_WriteLineInColour("[ Application '" & ApplicationName & "' was muted ]", ConsoleColor.Cyan)
+                            End If
                         End If
                         gMuteFlag = False
 
                     ElseIf gUnMuteFlag Then
+
                         gSessions(i).SimpleAudioVolume.Mute = False
-                        If gDebugFlag Then
-                            Console_WriteLineInColour("[ Application '" & ApplicationName & "' was unmuted ]", ConsoleColor.Cyan)
+                        If gDebugFlag AndAlso (ApplicationName <> LastApplicationReported) Then
+                            If (ApplicationName <> LastApplicationReported) Then
+                                Console_WriteLineInColour("[ Application '" & ApplicationName & "' was unmuted ]", ConsoleColor.Cyan)
+                            End If
                         End If
                         gUnMuteFlag = False
 
@@ -1002,30 +1080,105 @@ SetAppAudioVolume:
 
                         If Int(gSessions(i).SimpleAudioVolume.Volume * 100) = NewVolume Then
 
-                            If gDebugFlag Then
-                                Console_WriteLineInColour("[ The audio level for application '" & ApplicationName & "' did not need to be updated ]", ConsoleColor.Yellow)
+                            If gDebugFlag AndAlso (ApplicationName <> LastApplicationReported) Then
+                                If (ApplicationName <> LastApplicationReported) Then
+                                    Console_WriteLineInColour("[ The audio level for application '" & ApplicationName & "' did not need to be updated ]", ConsoleColor.Yellow)
+                                End If
                             End If
 
                         ElseIf (NewVolume < 0 OrElse NewVolume > 100) Then
 
-                            If gDebugFlag Then
-                                Console_WriteLineInColour("[ The audio level for application '" & ApplicationName & "' was not updated as the update value specified was not between 0 and 100 inclusive ]", ConsoleColor.Red)
+                            If gDebugFlag AndAlso (ApplicationName <> LastApplicationReported) Then
+                                If (ApplicationName <> LastApplicationReported) Then
+                                    Console_WriteLineInColour("[ The audio level for application '" & ApplicationName & "' was not updated as the update value specified was not between 0 and 100 inclusive ]", ConsoleColor.Red)
+                                End If
                             End If
 
                         Else
 
-                            gSessions(i).SimpleAudioVolume.Volume = NewVolume / 100
-                            If gDebugFlag Then
-                                Console_WriteLineInColour("[ The updated audio level for application '" & ApplicationName & "' = " & NewVolume & " ]", ConsoleColor.Cyan)
+                            Dim NewVolSingle As Single = (NewVolume / 100)
+                            gSessions(i).SimpleAudioVolume.Volume = NewVolSingle
+
+                            If gDebugFlag AndAlso (ApplicationName <> LastApplicationReported) Then
+                                If (ApplicationName <> LastApplicationReported) Then
+                                    Console_WriteLineInColour("[ The updated audio level for application '" & ApplicationName & "' = " & NewVolume & " ]", ConsoleColor.Cyan)
+                                End If
                             End If
 
                         End If
 
                     End If
 
+                    LastApplicationReported = ApplicationName
+
                 Next
 
                 GoTo AllGood
+
+            End If
+
+            If gSetAppAudioVolumeForSystemSounds Then
+
+                If (CommandLine = "") AndAlso (Not gMuteFlag) AndAlso (Not gUnMuteFlag) Then
+                    Console_WriteLineInColour("Error: a new audio level was not specified for Windows System sounds.", ConsoleColor.Red)
+                    gErrorExplained = True
+                    GoTo ErrorFound
+                End If
+
+                If (NewVolume < 0 OrElse NewVolume > 100) Then
+                    Console_WriteLineInColour("Error: The audio level for Window's System sounds was not updated as the update value specified was not between 0 and 100 inclusive", ConsoleColor.Red)
+                    gErrorExplained = True
+                    GoTo ErrorFound
+                End If
+
+                If gMuteFlag OrElse gUnMuteFlag Then
+                Else
+                    Try
+                        ' Create a new instance of the MMDeviceEnumerator
+                        Dim enumerator As New MMDeviceEnumerator()
+
+                        ' Get the default audio playback device
+                        Dim defaultPlaybackDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)
+
+                        ' Check if the default playback device is found
+                        If defaultPlaybackDevice Is Nothing Then
+                            Console.WriteLine("Default playback device not found.")
+                            GoTo ErrorFound
+                        End If
+
+                        ' Get the audio session manager for the default playback device
+                        Dim sessionManager = defaultPlaybackDevice.AudioSessionManager
+
+                        ' Get the list of all active audio sessions
+                        Dim sessions = sessionManager.Sessions
+
+                        ' Find the session for system sounds
+                        Dim SystemSoundsSession As AudioSessionControl = Nothing
+
+                        For i As Integer = 0 To sessions.Count - 1
+                            Dim session = sessions(i)
+                            ' Check if the session is the system sounds session
+                            If IsSystemSoundsSession(session) Then
+                                SystemSoundsSession = session
+                                Exit For
+                            End If
+                        Next
+
+                        ' Check if the system sounds session is found
+                        If SystemSoundsSession IsNot Nothing Then
+
+                            Dim NewVolSingle As Single = (NewVolume / 100)
+                            SystemSoundsSession.SimpleAudioVolume.Volume = NewVolSingle
+                            CommandLine = ""
+                        Else
+                            Console.WriteLine("System sounds session not found")
+                        End If
+
+                    Catch ex As Exception
+                        Console.WriteLine("An error occurred: " & ex.Message)
+                    End Try
+
+                End If
 
             End If
 
@@ -1103,9 +1256,34 @@ AllGood:
 
         If gDev Is Nothing Then GoTo WrapUp
 
-        If gUnMuteFlag Then gDev.AudioEndpointVolume.Mute = False
+        If gMuteFlag OrElse gUnMuteFlag Then
 
-        If gMuteFlag Then gDev.AudioEndpointVolume.Mute = True
+            If gSetAppAudioVolumeForSystemSounds Then
+
+                Dim enumerator As New MMDeviceEnumerator()
+                Dim defaultPlaybackDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)
+                Dim sessionManager = defaultPlaybackDevice.AudioSessionManager
+                Dim sessions = sessionManager.Sessions
+                Dim SystemSoundsSession As AudioSessionControl = Nothing
+                For i As Integer = 0 To sessions.Count - 1
+                    Dim session = sessions(i)
+                    If IsSystemSoundsSession(session) Then
+
+                        If gMuteFlag Then session.SimpleAudioVolume.Mute = True
+                        If gUnMuteFlag Then session.SimpleAudioVolume.Mute = False
+
+                        Exit For
+                    End If
+                Next
+
+            Else
+
+                If gUnMuteFlag Then gDev.AudioEndpointVolume.Mute = False
+                If gMuteFlag Then gDev.AudioEndpointVolume.Mute = True
+
+            End If
+
+        End If
 
         Dim FinalVolume As Single
 
@@ -1190,9 +1368,14 @@ ReturnNow:
 
             Console.WriteLine("")
 
+            Dim LastApplicationReported As String = ""
+
             If gSetAppAudioVolume Then
                 For Each i In gSessionIndex
-                    Console_WriteLineInColour("[ Ending audio level for application '" & ApplicationName & "' = " & gSessions(i).SimpleAudioVolume.Volume * 100 & " ]", ConsoleColor.Cyan)
+                    If ApplicationName <> LastApplicationReported Then
+                        Console_WriteLineInColour("[ Ending audio level for application '" & ApplicationName & "' = " & gSessions(i).SimpleAudioVolume.Volume * 100 & " ]", ConsoleColor.Cyan)
+                    End If
+                    LastApplicationReported = ApplicationName
                 Next
             End If
 
@@ -1279,7 +1462,7 @@ WrapUp:
 
                 For x As Single = StartingLevel + Increment To NewLevel Step Increment
 
-                    If NextDelayTime > 0 Then Threading.Thread.Sleep(NextDelayTime)
+                    If NextDelayTime > 0 Then System.Threading.Thread.Sleep(NextDelayTime)
 
                     LoopProcessingStopWatch.Reset()
                     LoopProcessingStopWatch.Start()
@@ -1460,7 +1643,7 @@ WrapUp:
 
             Next
 
-            Threading.Thread.Sleep(10) ' 1/100th of a second
+            System.Threading.Thread.Sleep(10) ' 1/100th of a second
 
         End While
 
@@ -1523,7 +1706,7 @@ WrapUp:
         Dim StartingColour As ConsoleColor = Console.ForegroundColor
 
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v4.3 Help")
+        Console_WriteLineInColour("SetVol v4.4 Help")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("Options:")
         Console_WriteLineInColour(" ")
@@ -1540,7 +1723,7 @@ WrapUp:
         Console_WriteLineInColour("                   most devices will have at least two channel levels")
         Console_WriteLineInColour("                   with the first channel representing the left speaker and the second channel representing the right speaker")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour(" appaudio app      used to set the audio level of a specific application/program")
+        Console_WriteLineInColour(" appaudio app      used to set the audio level of a specific application/program or for SystemSounds")
         Console_WriteLineInColour("                   when used without an app name, apps that can have their audio levels changed will be listed")
         Console_WriteLineInColour("                   when used with an app name, this option should be proceeded by either a desired audio level, relative")
         Console_WriteLineInColour("                   audio level, mute, or unmute. For example:")
@@ -1548,7 +1731,8 @@ WrapUp:
         Console_WriteLineInColour("                    +10 appaudio Spotify")
         Console_WriteLineInColour("                     mute appaudio Spotify")
         Console_WriteLineInColour("                     unmute appaudio Spotify")
-        Console_WriteLineInColour("                   note: SetVol can only change an app's audio level, it cannot change an app's recording level")
+        Console_WriteLineInColour("                   SetVol can only change an app's audio level, it cannot change an app's recording level")
+        Console_WriteLineInColour("                   use 'SetVol appaudio' for additional information, including a list of applications that can have their levels changed")
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour(" balance c1:c2:cz  set the audio/recording device's channel levels")
         Console_WriteLineInColour("                   cl is the desired level of the first channel where c1 = 0 to 100")
@@ -1631,6 +1815,7 @@ WrapUp:
         Console_WriteLineInColour(" setvol appaudio")
         Console_WriteLineInColour(" setvol 35 appaudio Spotify")
         Console_WriteLineInColour(" setvol 35 appaudio Spotify debug")
+        Console_WriteLineInColour(" setvol 20 appaudio SystemSounds")
         Console_WriteLineInColour(" setvol device")
         Console_WriteLineInColour(" setvol 75 device Speakers (Realtek USB2.0 Audio))")
         Console_WriteLineInColour(" setvol report")
@@ -1640,8 +1825,8 @@ WrapUp:
         Console_WriteLineInColour(" setvol makedefaultcomm device Microphone (Yeti Stereo Microphone)")
         Console_WriteLineInColour(" setvol website")
         Console_WriteLineInColour(" ")
-        Console_WriteLineInColour("SetVol v4.3", ConsoleColor.Yellow)
-        Console_WriteLineInColour("Copyright © 2024, Rob Latour", ConsoleColor.Yellow, True)
+        Console_WriteLineInColour("SetVol v4.4", ConsoleColor.Yellow)
+        Console_WriteLineInColour("Copyright © 2025, Rob Latour", ConsoleColor.Yellow, True)
         Console_WriteLineInColour(" ")
         Console_WriteLineInColour("SetVol is open source", ConsoleColor.Cyan)
         Console_WriteLineInColour("https://github.com/roblatour/setvol", ConsoleColor.Cyan)
