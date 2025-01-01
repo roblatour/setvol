@@ -5,7 +5,7 @@ SetVol is a free open source command line program for Windows to change and repo
 
 You are welcome to download and use SetVol for free on as many computers as you would like.
 
-A downloadable zipped signed executable of the program is available from [here](https://github.com/roblatour/setvol/releases/download/v4.3.0.0/SetVol.zip).
+A downloadable zipped signed executable of the program is available from [here](https://github.com/roblatour/setvol/releases/download/v4.4.0.0/SetVol.zip).
 
 ## License
 SetVol is licensed under a [MIT license](https://github.com/roblatour/setvol/blob/main/LICENSE)
